@@ -24,7 +24,7 @@ from langchain_mrscraper import (
     MrScraperGetResultByIdTool,
     MrScraperRerunManualScraperTool,
     MrScraperRerunScraperTool,
-    load_tools,
+    MrScraperLoader,
 )
 
 FAKE_TOKEN = "test-token-abc123"
@@ -101,47 +101,52 @@ class TestToolStructure:
 
 
 # ---------------------------------------------------------------------------
-# Test: load_tools factory
+# Test: MrScraperLoader
 # ---------------------------------------------------------------------------
 
 
-class TestLoadTools:
-    def test_load_tools_with_token(self):
+class TestMrScraperLoader:
+    def test_load_with_token(self):
         with patch("langchain_mrscraper.tools.MrScraper") as MockCls:
             MockCls.return_value = _make_mock_client()
-            tools = load_tools(token=FAKE_TOKEN)
+            loader = MrScraperLoader(token=FAKE_TOKEN)
+            tools = loader.load()
             assert len(tools) == 8
             MockCls.assert_called_once_with(token=FAKE_TOKEN)
 
-    def test_load_tools_with_client(self):
+    def test_load_with_client(self):
         client = _make_mock_client()
-        tools = load_tools(client=client)
+        loader = MrScraperLoader(client=client)
+        tools = loader.load()
         assert len(tools) == 8
 
-    def test_load_tools_filter_by_name(self):
+    def test_load_filter_by_name(self):
         client = _make_mock_client()
-        tools = load_tools(client=client, tool_names=["mrscraper_fetch_html"])
+        loader = MrScraperLoader(client=client, tool_names=["mrscraper_fetch_html"])
+        tools = loader.load()
         assert len(tools) == 1
         assert tools[0].name == "mrscraper_fetch_html"
 
-    def test_load_tools_filter_multiple(self):
+    def test_load_filter_multiple(self):
         client = _make_mock_client()
-        tools = load_tools(
+        loader = MrScraperLoader(
             client=client,
             tool_names=["mrscraper_fetch_html", "mrscraper_get_result_by_id"],
         )
+        tools = loader.load()
         assert len(tools) == 2
         names = {t.name for t in tools}
         assert names == {"mrscraper_fetch_html", "mrscraper_get_result_by_id"}
 
-    def test_load_tools_empty_filter(self):
+    def test_load_empty_filter(self):
         client = _make_mock_client()
-        tools = load_tools(client=client, tool_names=[])
+        loader = MrScraperLoader(client=client, tool_names=[])
+        tools = loader.load()
         assert len(tools) == 0
 
-    def test_load_tools_no_token_no_client_raises(self):
+    def test_load_no_token_no_client_raises(self):
         with pytest.raises(ValueError, match="Either token or client"):
-            load_tools()
+            MrScraperLoader().load()
 
 
 # ---------------------------------------------------------------------------
@@ -331,9 +336,9 @@ class TestExports:
         for cls in ALL_TOOL_CLASSES:
             assert hasattr(langchain_mrscraper, cls.__name__)
 
-    def test_load_tools_exported(self):
+    def test_mrscraper_loader_exported(self):
         import langchain_mrscraper
-        assert hasattr(langchain_mrscraper, "load_tools")
+        assert hasattr(langchain_mrscraper, "MrScraperLoader")
 
     def test_version_exported(self):
         import langchain_mrscraper

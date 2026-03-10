@@ -4,7 +4,7 @@
 
 LangChain tools integration for the [MrScraper](https://mrscraper.com) web-scraping API.
 
-> [MrScraper](https://mrscraper.com) turns any website into clean, structured data via a stealth browser and AI-powered scrapers. It handles JavaScript rendering, bot detection, proxies, and anti-scraping measures automatically.
+> [MrScraper](https://mrscraper.com) turns any website into a database with clean, structured data using a stealth browser and AI-powered scrapers. It automatically handles JavaScript rendering, bot detection, proxies, and anti-scraping measures.
 
 This package wraps every MrScraper API capability as a [LangChain Tool](https://docs.langchain.com/oss/python/langchain/tools), so LLM agents can scrape the web, create AI scrapers, rerun them in bulk, and retrieve results — all through natural-language tool calls.
 
@@ -14,16 +14,16 @@ This package wraps every MrScraper API capability as a [LangChain Tool](https://
 
 ### Integration details
 
-| Class | Package | Serializable | [JS support](https://js.langchain.com) | PyPI |
-| :--- | :--- | :---: | :---: | :---: |
-| `MrScraperFetchHTMLTool` | `langchain-mrscraper` | beta | ❌ | ![PyPI - Version](https://img.shields.io/pypi/v/langchain-mrscraper?style=flat-square&label=%20) |
-| `MrScraperCreateScraperTool` | `langchain-mrscraper` | beta | ❌ | |
-| `MrScraperRerunScraperTool` | `langchain-mrscraper` | beta | ❌ | |
-| `MrScraperBulkRerunAIScraperTool` | `langchain-mrscraper` | beta | ❌ | |
-| `MrScraperRerunManualScraperTool` | `langchain-mrscraper` | beta | ❌ | |
-| `MrScraperBulkRerunManualScraperTool` | `langchain-mrscraper` | beta | ❌ | |
-| `MrScraperGetAllResultsTool` | `langchain-mrscraper` | beta | ❌ | |
-| `MrScraperGetResultByIdTool` | `langchain-mrscraper` | beta | ❌ | |
+| Class | Package |
+| :--- | :--- |
+| `MrScraperFetchHTMLTool` | `langchain-mrscraper` |
+| `MrScraperCreateScraperTool` | `langchain-mrscraper` |
+| `MrScraperRerunScraperTool` | `langchain-mrscraper` |
+| `MrScraperBulkRerunAIScraperTool` | `langchain-mrscraper` |
+| `MrScraperRerunManualScraperTool` | `langchain-mrscraper` |
+| `MrScraperBulkRerunManualScraperTool` | `langchain-mrscraper` |
+| `MrScraperGetAllResultsTool` | `langchain-mrscraper` |
+| `MrScraperGetResultByIdTool` | `langchain-mrscraper` |
 
 ### Features
 
@@ -79,28 +79,28 @@ Requires Python 3.9+. Installs `mrscraper-sdk` and `langchain-core` as dependenc
 ### Load all tools (recommended)
 
 ```python
-from langchain_mrscraper import load_tools
+from langchain_mrscraper import MrScraperLoader
 
-tools = load_tools(token="MRSCRAPER_API_TOKEN")
+tools = MrScraperLoader(token="MRSCRAPER_API_TOKEN").load()
 ```
 
 ### Load with an existing client
 
 ```python
 from mrscraper import MrScraper
-from langchain_mrscraper import load_tools
+from langchain_mrscraper import MrScraperLoader
 
 client = MrScraper(token="MRSCRAPER_API_TOKEN")
-tools = load_tools(client=client)
+tools = MrScraperLoader(client=client).load()
 ```
 
 ### Load only specific tools
 
 ```python
-tools = load_tools(
+tools = MrScraperLoader(
     token="MRSCRAPER_API_TOKEN",
     tool_names=["mrscraper_fetch_html", "mrscraper_create_scraper"],
-)
+).load()
 ```
 
 ### Instantiate individual tools
@@ -162,10 +162,10 @@ result = fetch_tool.invoke(model_generated_tool_call)
 ### Within an agent
 
 ```python
-from langchain_mrscraper import load_tools
+from langchain_mrscraper import MrScraperLoader
 from langchain_anthropic import ChatAnthropic
 
-tools = load_tools(token="MRSCRAPER_API_TOKEN")
+tools = MrScraperLoader(token="MRSCRAPER_API_TOKEN").load()
 llm = ChatAnthropic(model="claude-sonnet-4-20250514", temperature=0)
 
 # Bind tools to the model

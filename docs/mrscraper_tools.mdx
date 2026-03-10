@@ -68,18 +68,18 @@ uv add langchain-mrscraper
 ### Load all tools
 
 ```python
-from langchain_mrscraper import load_tools
+from langchain_mrscraper import MrScraperLoader
 
-tools = load_tools(token=os.environ["MRSCRAPER_API_TOKEN"])
+tools = MrScraperLoader(token=os.environ["MRSCRAPER_API_TOKEN"]).load()
 ```
 
 ### Load specific tools
 
 ```python
-tools = load_tools(
+tools = MrScraperLoader(
     token=os.environ["MRSCRAPER_API_TOKEN"],
     tool_names=["mrscraper_fetch_html", "mrscraper_create_scraper"],
-)
+).load()
 ```
 
 ### Instantiate individual tools
@@ -140,11 +140,11 @@ tool_msg = fetch_tool.invoke(model_generated_tool_call)
 ### Within an agent
 
 ```python
-from langchain_mrscraper import load_tools
+from langchain_mrscraper import MrScraperLoader
 from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 
-tools = load_tools(token=os.environ["MRSCRAPER_API_TOKEN"])
+tools = MrScraperLoader(token=os.environ["MRSCRAPER_API_TOKEN"]).load()
 llm = ChatAnthropic(model="claude-sonnet-4-20250514")
 
 agent = create_react_agent(llm, tools)

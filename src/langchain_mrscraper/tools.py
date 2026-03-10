@@ -327,14 +327,9 @@ _TOOL_CLASSES = [
 ]
 
 
-def load_tools(
-    token: str | None = None,
-    client: MrScraper | None = None,
-    *,
-    tool_names: list[str] | None = None,
-) -> list[BaseTool]:
+class MrScraperLoader:
     """
-    Create LangChain tools for the MrScraper API.
+    Loader for MrScraper LangChain tools.
 
     Provide either ``token`` or an existing ``client``. If both are given, ``client`` is used.
 
@@ -344,24 +339,42 @@ def load_tools(
         tool_names: If set, only tools whose name is in this list are returned.
                     Default is all tools.
 
-    Returns:
-        List of BaseTool instances ready for use with LangChain agents.
-
     Example::
 
-        from langchain_mrscraper import load_tools
+        from langchain_mrscraper import MrScraperLoader
 
-        tools = load_tools(token="MRSCRAPER_API_TOKEN")
+        loader = MrScraperLoader(token="MRSCRAPER_API_TOKEN")
+        tools = loader.load()
         # Use with an agent
         agent = create_react_agent(model, tools)
     """
-    if client is None:
-        if token is None:
-            raise ValueError("Either token or client must be provided")
-        client = MrScraper(token=token)
 
-    tools = [cls(client=client) for cls in _TOOL_CLASSES]
-    if tool_names is not None:
-        names_set = set(tool_names)
-        tools = [t for t in tools if t.name in names_set]
-    return tools
+    def __init__(
+        self,
+        token: str | None = None,
+        client: MrScraper | None = None,
+        *,
+        tool_names: list[str] | None = None,
+    ) -> None:
+        self._token = token
+        self._client = client
+        self._tool_names = tool_names
+
+    def load(self) -> list[BaseTool]:
+        """
+        Create and return LangChain tools for the MrScraper API.
+
+        Returns:
+            List of BaseTool instances ready for use with LangChain agents.
+        """
+        client = self._client
+        if client is None:
+            if self._token is None:
+                raise ValueError("Either token or client must be provided")
+            client = MrScraper(token=self._token)
+
+        tools = [cls(client=client) for cls in _TOOL_CLASSES]
+        if self._tool_names is not None:
+            names_set = set(self._tool_names)
+            tools = [t for t in tools if t.name in names_set]
+        return tools

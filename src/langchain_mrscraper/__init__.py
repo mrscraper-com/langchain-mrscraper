@@ -5,9 +5,9 @@ Provides tools that wrap the MrScraper API for use with LangChain agents and cha
 
 Quick start::
 
-    from langchain_mrscraper import load_tools
+    from langchain_mrscraper import MrScraperLoader
 
-    tools = load_tools(token="MRSCRAPER_API_TOKEN")
+    tools = MrScraperLoader(token="MRSCRAPER_API_TOKEN").load()
     # Use with an agent, e.g. create_react_agent(model, tools)
 """
 
@@ -20,11 +20,11 @@ from .tools import (
     MrScraperGetResultByIdTool,
     MrScraperRerunManualScraperTool,
     MrScraperRerunScraperTool,
-    load_tools,
+    MrScraperLoader,
 )
 
 __all__ = [
-    "load_tools",
+    "MrScraperLoader",
     "MrScraperFetchHTMLTool",
     "MrScraperCreateScraperTool",
     "MrScraperRerunScraperTool",

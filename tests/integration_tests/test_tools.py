@@ -22,7 +22,7 @@ from langchain_mrscraper import (
     MrScraperGetResultByIdTool,
     MrScraperRerunManualScraperTool,
     MrScraperRerunScraperTool,
-    load_tools,
+    MrScraperLoader,
 )
 
 MRSCRAPER_TOKEN = os.environ.get("MRSCRAPER_API_TOKEN", "")
@@ -37,7 +37,7 @@ def api_token():
 
 @pytest.fixture(scope="module")
 def tools(api_token):
-    return load_tools(token=api_token)
+    return MrScraperLoader(token=api_token).load()
 
 
 @pytest.fixture(scope="module")
@@ -53,14 +53,9 @@ def get_all_results_tool(api_token):
     client = MrScraper(token=api_token)
     return MrScraperGetAllResultsTool(client=client)
 
-
-# ---------------------------------------------------------------------------
 # Integration tests
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.integration
-class TestLoadToolsIntegration:
+class TestMrScraperLoaderIntegration:
     def test_load_all_tools(self, tools):
         assert len(tools) == 8
         names = {t.name for t in tools}

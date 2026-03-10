@@ -33,9 +33,9 @@ os.environ["MRSCRAPER_API_TOKEN"] = "your-api-token"
 See a [usage example](/oss/integrations/tools/mrscraper).
 
 ```python
-from langchain_mrscraper import load_tools
+from langchain_mrscraper import MrScraperLoader
 
-tools = load_tools(token="MRSCRAPER_API_TOKEN")
+tools = MrScraperLoader(token="MRSCRAPER_API_TOKEN").load()
 ```
 
 MrScraper provides 8 LangChain tools:
