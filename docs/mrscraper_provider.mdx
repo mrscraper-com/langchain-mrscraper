@@ -1,0 +1,52 @@
+---
+title: "MrScraper integrations"
+description: "Integrate with MrScraper using LangChain Python."
+---
+
+> [MrScraper](https://mrscraper.com) turns any website into clean, structured data.
+> It handles JavaScript rendering, bot detection, rotating proxies, and anti-scraping
+> measures — giving you clean HTML or AI-extracted data via a simple API.
+
+## Installation and setup
+
+Install the LangChain integration package:
+
+<CodeGroup>
+```bash pip
+pip install langchain-mrscraper
+```
+
+```bash uv
+uv add langchain-mrscraper
+```
+</CodeGroup>
+
+Get your API token at [app.mrscraper.com](https://app.mrscraper.com).
+
+```python
+import os
+os.environ["MRSCRAPER_API_TOKEN"] = "your-api-token"
+```
+
+## Tools
+
+See a [usage example](/oss/integrations/tools/mrscraper).
+
+```python
+from langchain_mrscraper import load_tools
+
+tools = load_tools(token="MRSCRAPER_API_TOKEN")
+```
+
+MrScraper provides 8 LangChain tools:
+
+| Tool | Description |
+|------|-------------|
+| `mrscraper_fetch_html` | Fetch rendered HTML from any URL (stealth browser) |
+| `mrscraper_create_scraper` | Create and run an AI scraper with natural-language instructions |
+| `mrscraper_rerun_scraper` | Rerun an AI scraper on a new URL |
+| `mrscraper_bulk_rerun_ai_scraper` | Rerun an AI scraper on multiple URLs in batch |
+| `mrscraper_rerun_manual_scraper` | Rerun a dashboard-built manual scraper |
+| `mrscraper_bulk_rerun_manual_scraper` | Rerun a manual scraper on multiple URLs |
+| `mrscraper_get_all_results` | List scraping results with pagination and filters |
+| `mrscraper_get_result_by_id` | Get a single scraping result by ID |

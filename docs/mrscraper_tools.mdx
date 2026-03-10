@@ -1,0 +1,187 @@
+---
+title: "MrScraper integration"
+description: "Integrate with the MrScraper tools using LangChain Python."
+---
+
+[MrScraper](https://mrscraper.com) turns any website into clean, structured data. It handles JavaScript rendering, bot detection, rotating proxies, and anti-scraping measures automatically.
+
+This guide provides a quick overview for getting started with MrScraper [tools](/oss/langchain/tools).
+
+## Overview
+
+### Details
+
+| Class | Package | Serializable | [JS support](https://js.langchain.com) | Downloads | Version |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| `MrScraperFetchHTMLTool` | [langchain-mrscraper](https://pypi.org/project/langchain-mrscraper/) | beta | ❌ | ![PyPI - Downloads](https://img.shields.io/pypi/dm/langchain-mrscraper?style=flat-square&label=%20) | ![PyPI - Version](https://img.shields.io/pypi/v/langchain-mrscraper?style=flat-square&label=%20) |
+
+### Features
+
+- **Stealth HTML fetching** — Render JavaScript, bypass bot detection, geo-proxy support
+- **AI-powered scrapers** — Create scrapers with natural-language instructions
+- **Bulk scraping** — Rerun scrapers across multiple URLs in one batch
+- **Manual scraper support** — Rerun dashboard-built scrapers via API
+- **Result management** — Paginated listing, filtering, and individual result retrieval
+- **Full async** — All tools support sync and async invocation
+
+---
+
+## Setup
+
+To access MrScraper tools, you'll need a MrScraper account and API key, and the `langchain-mrscraper` package.
+
+### Credentials
+
+```python
+import getpass
+import os
+
+if "MRSCRAPER_API_TOKEN" not in os.environ:
+    os.environ["MRSCRAPER_API_TOKEN"] = getpass.getpass("Enter your MrScraper API key: ")
+```
+
+Get your token at [app.mrscraper.com](https://app.mrscraper.com).
+
+It's also helpful (but not needed) to set up LangSmith for best-in-class observability:
+
+```python
+os.environ["LANGSMITH_API_KEY"] = getpass.getpass("Enter your LangSmith API key: ")
+os.environ["LANGSMITH_TRACING"] = "true"
+```
+
+### Installation
+
+<CodeGroup>
+```bash pip
+pip install -U langchain-mrscraper
+```
+
+```bash uv
+uv add langchain-mrscraper
+```
+</CodeGroup>
+
+---
+
+## Instantiation
+
+### Load all tools
+
+```python
+from langchain_mrscraper import load_tools
+
+tools = load_tools(token=os.environ["MRSCRAPER_API_TOKEN"])
+```
+
+### Load specific tools
+
+```python
+tools = load_tools(
+    token=os.environ["MRSCRAPER_API_TOKEN"],
+    tool_names=["mrscraper_fetch_html", "mrscraper_create_scraper"],
+)
+```
+
+### Instantiate individual tools
+
+```python
+from mrscraper import MrScraper
+from langchain_mrscraper import MrScraperFetchHTMLTool
+
+client = MrScraper(token=os.environ["MRSCRAPER_API_TOKEN"])
+fetch_tool = MrScraperFetchHTMLTool(client=client)
+```
+
+---
+
+## Invocation
+
+### Directly — Fetch HTML
+
+```python
+result = fetch_tool.invoke({"url": "https://example.com"})
+```
+
+Returns a JSON string:
+
+```json
+{
+  "status_code": 200,
+  "data": "<html>...</html>",
+  "headers": {"content-type": "text/html"}
+}
+```
+
+### Directly — Create an AI scraper
+
+```python
+from langchain_mrscraper import MrScraperCreateScraperTool
+
+create_tool = MrScraperCreateScraperTool(client=client)
+result = create_tool.invoke({
+    "url": "https://example.com/products",
+    "message": "Extract all product names, prices, and ratings",
+    "agent": "listing",
+})
+```
+
+### As a ToolCall
+
+```python
+model_generated_tool_call = {
+    "args": {"url": "https://example.com"},
+    "id": "1",
+    "name": fetch_tool.name,
+    "type": "tool_call",
+}
+tool_msg = fetch_tool.invoke(model_generated_tool_call)
+```
+
+### Within an agent
+
+```python
+from langchain_mrscraper import load_tools
+from langchain_anthropic import ChatAnthropic
+from langgraph.prebuilt import create_react_agent
+
+tools = load_tools(token=os.environ["MRSCRAPER_API_TOKEN"])
+llm = ChatAnthropic(model="claude-sonnet-4-20250514")
+
+agent = create_react_agent(llm, tools)
+result = agent.invoke({
+    "messages": [
+        {"role": "user", "content": "Scrape https://books.toscrape.com and extract all book titles and prices"}
+    ],
+})
+```
+
+---
+
+## Available tools
+
+| Tool name | Description |
+|-----------|-------------|
+| `mrscraper_fetch_html` | Fetch rendered HTML from a URL using a stealth browser |
+| `mrscraper_create_scraper` | Create and run an AI scraper with natural-language instructions |
+| `mrscraper_rerun_scraper` | Rerun an existing AI scraper on a new URL |
+| `mrscraper_bulk_rerun_ai_scraper` | Rerun an AI scraper on multiple URLs in one batch |
+| `mrscraper_rerun_manual_scraper` | Rerun a dashboard-built manual scraper on a URL |
+| `mrscraper_bulk_rerun_manual_scraper` | Rerun a manual scraper on multiple URLs in batch |
+| `mrscraper_get_all_results` | List all scraping results (paginated, sortable, filterable) |
+| `mrscraper_get_result_by_id` | Retrieve a single scraping result by its ID |
+
+### Agent types for `create_scraper`
+
+| Agent | Best for |
+|-------|----------|
+| `"general"` | Any single page (default) |
+| `"listing"` | Product listings, job boards, search results |
+| `"map"` | Crawling and extracting from all sub-pages of a site |
+
+---
+
+## API reference
+
+For full API documentation, visit [docs.mrscraper.com](https://docs.mrscraper.com).
+
+For the source code, visit [github.com/mrscraper/langchain-mrscraper](https://github.com/mrscraper/langchain-mrscraper).

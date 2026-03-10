@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "langchain-mrscraper"
+version = "0.1.0"
+description = "LangChain tools for the MrScraper web-scraping API"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Riandra Diva Auzan", url = "https://mrscraper.com" },
+    { name = "R&D Team MrScraper", url = "https://mrscraper.com" }
+]
+keywords = ["langchain", "scraping", "web scraping", "mrscraper", "tools", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Typing :: Typed",
+]
+dependencies = [
+    "mrscraper-sdk>=0.1.2",
+    "langchain-core>=0.3.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "langchain-tests>=0.3.0",
+]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "langchain-tests>=0.3.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.urls]
+Homepage = "https://mrscraper.com"
+Documentation = "https://docs.mrscraper.com"
+Repository = "https://github.com/mrscraper/langchain-mrscraper"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/langchain_mrscraper"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (hit real API)",
+]
