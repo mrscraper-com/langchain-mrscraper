@@ -1,38 +1,34 @@
-"""
-LangChain integration for MrScraper.
+"""LangChain integration package for MrScraper tools."""
 
-Provides tools that wrap the MrScraper API for use with LangChain agents and chains.
-
-Quick start::
-
-    from langchain_mrscraper import MrScraperLoader
-
-    tools = MrScraperLoader(token="MRSCRAPER_API_TOKEN").load()
-    # Use with an agent, e.g. create_react_agent(model, tools)
-"""
+from importlib.metadata import PackageNotFoundError, version
 
 from .tools import (
-    MrScraperBulkRerunAIScraperTool,
-    MrScraperBulkRerunManualScraperTool,
-    MrScraperCreateScraperTool,
-    MrScraperFetchHTMLTool,
-    MrScraperGetAllResultsTool,
-    MrScraperGetResultByIdTool,
-    MrScraperRerunManualScraperTool,
-    MrScraperRerunScraperTool,
-    MrScraperLoader,
+    MrScraperBulkRerunAIScraper,
+    MrScraperBulkRerunManualScraper,
+    MrScraperCreateScraper,
+    MrScraperFetchHTML,
+    MrScraperGetAllResults,
+    MrScraperGetResultById,
+    MrScraperRerunManualScraper,
+    MrScraperRerunScraper,
+    MrScraperToolkit,
+    load_mrscraper_tools,
 )
 
 __all__ = [
-    "MrScraperLoader",
-    "MrScraperFetchHTMLTool",
-    "MrScraperCreateScraperTool",
-    "MrScraperRerunScraperTool",
-    "MrScraperBulkRerunAIScraperTool",
-    "MrScraperRerunManualScraperTool",
-    "MrScraperBulkRerunManualScraperTool",
-    "MrScraperGetAllResultsTool",
-    "MrScraperGetResultByIdTool",
+    "load_mrscraper_tools",
+    "MrScraperToolkit",
+    "MrScraperFetchHTML",
+    "MrScraperCreateScraper",
+    "MrScraperRerunScraper",
+    "MrScraperBulkRerunAIScraper",
+    "MrScraperRerunManualScraper",
+    "MrScraperBulkRerunManualScraper",
+    "MrScraperGetAllResults",
+    "MrScraperGetResultById",
 ]
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("langchain-mrscraper")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
