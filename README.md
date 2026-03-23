@@ -49,7 +49,7 @@ agent = create_react_agent(ChatOpenAI(model="gpt-4o-mini"), tools)
 
 - `mrscraper_fetch_html`
 - `mrscraper_create_scraper`
-- `mrscraper_rerun_scraper`
+- `mrscraper_rerun_ai_scraper`
 - `mrscraper_bulk_rerun_ai_scraper`
 - `mrscraper_rerun_manual_scraper`
 - `mrscraper_bulk_rerun_manual_scraper`
