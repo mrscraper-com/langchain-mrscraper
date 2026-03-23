@@ -1,307 +1,150 @@
-"""
-Unit tests for langchain-mrscraper tools.
-
-These tests use a real MrScraper client created from an API token.
-All API responses are automatically saved into debug_results/*.json
-
-Run with:
-    MRSCRAPER_API_TOKEN=your_token pytest tests/unit_tests/ -v
-"""
+"""Unit tests for langchain-mrscraper tools (no real API calls)."""
 
 from __future__ import annotations
 
 import json
-import os
-from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.tools import BaseTool
-from mrscraper import MrScraper
 
 from langchain_mrscraper import (
-    MrScraperBulkRerunAIScraperTool,
-    MrScraperBulkRerunManualScraperTool,
-    MrScraperCreateScraperTool,
-    MrScraperFetchHTMLTool,
-    MrScraperGetAllResultsTool,
-    MrScraperGetResultByIdTool,
-    MrScraperRerunManualScraperTool,
-    MrScraperRerunScraperTool,
-    MrScraperLoader,
+    MrScraperBulkRerunAIScraper,
+    MrScraperBulkRerunManualScraper,
+    MrScraperCreateScraper,
+    MrScraperFetchHTML,
+    MrScraperGetAllResults,
+    MrScraperGetResultById,
+    MrScraperRerunManualScraper,
+    MrScraperRerunScraper,
+    MrScraperToolkit,
+    load_mrscraper_tools,
 )
 
-MRSCRAPER_TOKEN = os.environ.get("MRSCRAPER_API_TOKEN", "")
-DEBUG_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "debug_results")
-
-
-def save_result(test_name: str, result: dict):
-    os.makedirs(DEBUG_DIR, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{test_name}_{timestamp}.json"
-    filepath = os.path.join(DEBUG_DIR, filename)
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2, ensure_ascii=False, default=str)
-    print(f"\nSaved result to: {os.path.abspath(filepath)}\n")
-
-
 ALL_TOOL_CLASSES = [
-    MrScraperFetchHTMLTool,
-    MrScraperCreateScraperTool,
-    MrScraperRerunScraperTool,
-    MrScraperBulkRerunAIScraperTool,
-    MrScraperRerunManualScraperTool,
-    MrScraperBulkRerunManualScraperTool,
-    MrScraperGetAllResultsTool,
-    MrScraperGetResultByIdTool,
+    MrScraperFetchHTML,
+    MrScraperCreateScraper,
+    MrScraperRerunScraper,
+    MrScraperBulkRerunAIScraper,
+    MrScraperRerunManualScraper,
+    MrScraperBulkRerunManualScraper,
+    MrScraperGetAllResults,
+    MrScraperGetResultById,
 ]
 
 
-@pytest.fixture(scope="module")
-def api_token():
-    if not MRSCRAPER_TOKEN:
-        pytest.skip("Set MRSCRAPER_API_TOKEN env var to run tests.")
-    return MRSCRAPER_TOKEN
+@pytest.fixture
+def fake_client() -> MagicMock:
+    client = MagicMock()
+    client.fetch_html = AsyncMock(return_value={"status_code": 200, "data": "<html></html>", "headers": {}})
+    client.create_scraper = AsyncMock(return_value={"status_code": 201, "data": {"data": {"id": "scr_1"}}, "headers": {}})
+    client.rerun_scraper = AsyncMock(return_value={"status_code": 200, "data": {"id": "run_1"}, "headers": {}})
+    client.bulk_rerun_ai_scraper = AsyncMock(return_value={"status_code": 200, "data": {"job_id": "job_ai"}, "headers": {}})
+    client.rerun_manual_scraper = AsyncMock(return_value={"status_code": 200, "data": {"id": "run_m1"}, "headers": {}})
+    client.bulk_rerun_manual_scraper = AsyncMock(return_value={"status_code": 200, "data": {"job_id": "job_manual"}, "headers": {}})
+    client.get_all_results = AsyncMock(return_value={"status_code": 200, "data": {"items": []}, "headers": {}})
+    client.get_result_by_id = AsyncMock(return_value={"status_code": 200, "data": {"id": "res_1"}, "headers": {}})
+    return client
 
 
-@pytest.fixture(scope="module")
-def client(api_token):
-    return MrScraper(token=api_token)
-
-
-# ---------------------------------------------------------------------------
-# Test: all tools are BaseTool subclasses
-# ---------------------------------------------------------------------------
-
-
-class TestToolStructure:
-    """Verify that every tool has the correct class hierarchy and properties."""
-
-    @pytest.mark.parametrize("tool_cls", ALL_TOOL_CLASSES)
-    def test_is_base_tool_subclass(self, tool_cls):
-        assert issubclass(tool_cls, BaseTool)
-
-    @pytest.mark.parametrize("tool_cls", ALL_TOOL_CLASSES)
-    def test_has_name(self, tool_cls, client):
-        tool = tool_cls(client=client)
-        assert isinstance(tool.name, str)
-        assert len(tool.name) > 0
-        assert tool.name.startswith("mrscraper_")
-
-    @pytest.mark.parametrize("tool_cls", ALL_TOOL_CLASSES)
-    def test_has_description(self, tool_cls, client):
-        tool = tool_cls(client=client)
-        assert isinstance(tool.description, str)
-        assert len(tool.description) > 10
-
-    @pytest.mark.parametrize("tool_cls", ALL_TOOL_CLASSES)
-    def test_has_args_schema(self, tool_cls, client):
-        tool = tool_cls(client=client)
-        assert tool.args_schema is not None
-        schema = tool.args_schema.model_json_schema()
-        assert "properties" in schema
-
-    @pytest.mark.parametrize("tool_cls", ALL_TOOL_CLASSES)
-    def test_tool_name_is_unique(self, tool_cls, client):
-        """Each tool class should have a distinct name."""
-        names = [cls(client=client).name for cls in ALL_TOOL_CLASSES]
-        assert len(names) == len(set(names)), "Duplicate tool names found"
-
-
-# ---------------------------------------------------------------------------
-# Test: MrScraperLoader
-# ---------------------------------------------------------------------------
-
-
-class TestMrScraperLoader:
-    def test_load_with_token(self, api_token):
-        loader = MrScraperLoader(token=api_token)
-        tools = loader.load()
-        assert len(tools) == 8
-
-    def test_load_with_client(self, client):
-        loader = MrScraperLoader(client=client)
-        tools = loader.load()
-        assert len(tools) == 8
-
-    def test_load_filter_by_name(self, client):
-        loader = MrScraperLoader(client=client, tool_names=["mrscraper_fetch_html"])
-        tools = loader.load()
-        assert len(tools) == 1
-        assert tools[0].name == "mrscraper_fetch_html"
-
-    def test_load_filter_multiple(self, client):
-        loader = MrScraperLoader(
-            client=client,
-            tool_names=["mrscraper_fetch_html", "mrscraper_get_result_by_id"],
-        )
-        tools = loader.load()
-        assert len(tools) == 2
-        names = {t.name for t in tools}
-        assert names == {"mrscraper_fetch_html", "mrscraper_get_result_by_id"}
-
-    def test_load_empty_filter(self, client):
-        loader = MrScraperLoader(client=client, tool_names=[])
-        tools = loader.load()
-        assert len(tools) == 0
-
-    def test_load_no_token_no_client_raises(self):
-        with pytest.raises(ValueError, match="Either token or client"):
-            MrScraperLoader().load()
-
-
-# ---------------------------------------------------------------------------
-# Test: tool schemas have correct required/optional fields
-# ---------------------------------------------------------------------------
-
-
-class TestToolSchemas:
-    def test_fetch_html_schema(self, client):
-        tool = MrScraperFetchHTMLTool(client=client)
-        schema = tool.args_schema.model_json_schema()
-        assert "url" in schema["required"]
-        props = schema["properties"]
-        assert "url" in props
-        assert "timeout" in props
-        assert "geo_code" in props
-        assert "block_resources" in props
-
-    def test_create_scraper_schema(self, client):
-        tool = MrScraperCreateScraperTool(client=client)
-        schema = tool.args_schema.model_json_schema()
-        assert "url" in schema["required"]
-        assert "message" in schema["required"]
-        props = schema["properties"]
-        assert "agent" in props
-        assert "proxy_country" in props
-
-    def test_rerun_scraper_schema(self, client):
-        tool = MrScraperRerunScraperTool(client=client)
-        schema = tool.args_schema.model_json_schema()
-        assert "scraper_id" in schema["required"]
-        assert "url" in schema["required"]
-
-    def test_bulk_rerun_ai_schema(self, client):
-        tool = MrScraperBulkRerunAIScraperTool(client=client)
-        schema = tool.args_schema.model_json_schema()
-        assert "scraper_id" in schema["required"]
-        assert "urls" in schema["required"]
-
-    def test_rerun_manual_schema(self, client):
-        tool = MrScraperRerunManualScraperTool(client=client)
-        schema = tool.args_schema.model_json_schema()
-        assert "scraper_id" in schema["required"]
-        assert "url" in schema["required"]
-
-    def test_bulk_rerun_manual_schema(self, client):
-        tool = MrScraperBulkRerunManualScraperTool(client=client)
-        schema = tool.args_schema.model_json_schema()
-        assert "scraper_id" in schema["required"]
-        assert "urls" in schema["required"]
-
-    def test_get_all_results_schema_all_optional(self, client):
-        tool = MrScraperGetAllResultsTool(client=client)
-        schema = tool.args_schema.model_json_schema()
-        assert schema.get("required") is None or len(schema.get("required", [])) == 0
-
-    def test_get_result_by_id_schema(self, client):
-        tool = MrScraperGetResultByIdTool(client=client)
-        schema = tool.args_schema.model_json_schema()
-        assert "result_id" in schema["required"]
-
-
-# ---------------------------------------------------------------------------
-# Test: tool invocation with real client (async)
-# ---------------------------------------------------------------------------
-
-
-def _parse_result(result):
-    """Extract JSON from tool result (handles both raw string and ToolMessage)."""
-    content = result.content if hasattr(result, "content") else result
+def _parse_result(content: str) -> dict:
     return json.loads(content)
 
 
-class TestToolInvocation:
-    @pytest.mark.asyncio
-    async def test_fetch_html_invoke(self, client):
-        tool = MrScraperFetchHTMLTool(client=client)
-        raw = await tool.ainvoke({"url": "https://books.toscrape.com/"})
-        result = _parse_result(raw)
-        save_result("fetch_html_basic", result)
-
-        assert isinstance(result, dict)
-        assert result["status_code"] == 200 or result["status_code"] == 201
-        assert "data" in result
-        assert "<html" in result["data"].lower()
-
-    @pytest.mark.asyncio
-    async def test_get_all_results_invoke(self, client):
-        tool = MrScraperGetAllResultsTool(client=client)
-        raw = await tool.ainvoke({})
-        result = _parse_result(raw)
-        save_result("get_all_results", result)
-
-        assert isinstance(result, dict)
-        assert result["status_code"] == 200 or result["status_code"] == 201
-        assert "data" in result
-
-    @pytest.mark.asyncio
-    async def test_create_scraper_invoke(self, client):
-        tool = MrScraperCreateScraperTool(client=client)
-        raw = await tool.ainvoke({
-            "url": "https://books.toscrape.com/",
-            "message": "Extract the main heading text only.",
-            "agent": "general",
-        })
-        result = _parse_result(raw)
-        save_result("create_scraper_general", result)
-
-        assert isinstance(result, dict)
-        assert result["status_code"] == 200 or result["status_code"] == 201
-        assert "data" in result
-        assert "id" in result["data"]["data"] or "scraperId" in result["data"]["data"]
+@pytest.mark.parametrize("tool_cls", ALL_TOOL_CLASSES)
+def test_tool_structure(tool_cls: type[BaseTool], fake_client: MagicMock) -> None:
+    tool = tool_cls(client=fake_client)
+    assert isinstance(tool, BaseTool)
+    assert tool.name.startswith("mrscraper_")
+    assert len(tool.description) > 10
+    schema = tool.args_schema.model_json_schema()
+    assert "properties" in schema
 
 
-# ---------------------------------------------------------------------------
-# Test: tool_call format (as LLM would generate)
-# ---------------------------------------------------------------------------
+def test_tool_names_unique(fake_client: MagicMock) -> None:
+    names = [cls(client=fake_client).name for cls in ALL_TOOL_CLASSES]
+    assert len(names) == len(set(names))
 
 
-class TestToolCallFormat:
-    @pytest.mark.asyncio
-    async def test_invoke_with_tool_call(self, client):
-        """Tools should accept a model-generated ToolCall dict."""
-        tool = MrScraperFetchHTMLTool(client=client)
-        tool_call = {
-            "args": {"url": "https://books.toscrape.com/"},
-            "id": "call_123",
-            "name": "mrscraper_fetch_html",
-            "type": "tool_call",
+def test_tool_invocation_routes_to_client(fake_client: MagicMock) -> None:
+    tool = MrScraperFetchHTML(client=fake_client)
+    output = tool.invoke({"url": "https://example.com"})
+    parsed = _parse_result(output)
+    assert parsed["status_code"] == 200
+    fake_client.fetch_html.assert_called_once()
+    assert fake_client.fetch_html.call_args.kwargs["url"] == "https://example.com"
+
+
+@pytest.mark.asyncio
+async def test_async_tool_invocation_routes_to_client(fake_client: MagicMock) -> None:
+    tool = MrScraperCreateScraper(client=fake_client)
+    output = await tool.ainvoke(
+        {
+            "url": "https://example.com/products",
+            "message": "Extract titles and prices",
         }
-        raw = await tool.ainvoke(tool_call)
-        result = _parse_result(raw)
-        save_result("fetch_html_tool_call", result)
-
-        assert isinstance(result, dict)
-        assert result["status_code"] == 200 or result["status_code"] == 201
-        assert "data" in result
-
-
-# ---------------------------------------------------------------------------
-# Test: exports from __init__.py
-# ---------------------------------------------------------------------------
+    )
+    parsed = _parse_result(output)
+    assert parsed["status_code"] == 201
+    fake_client.create_scraper.assert_called_once()
+    assert fake_client.create_scraper.call_args.kwargs["url"] == "https://example.com/products"
+    assert fake_client.create_scraper.call_args.kwargs["message"] == "Extract titles and prices"
 
 
-class TestExports:
-    def test_all_tool_classes_exported(self):
-        import langchain_mrscraper
-        for cls in ALL_TOOL_CLASSES:
-            assert hasattr(langchain_mrscraper, cls.__name__)
+def test_toolkit_get_tools_with_client(fake_client: MagicMock) -> None:
+    toolkit = MrScraperToolkit(client=fake_client)
+    tools = toolkit.get_tools()
+    assert len(tools) == 8
 
-    def test_mrscraper_loader_exported(self):
-        import langchain_mrscraper
-        assert hasattr(langchain_mrscraper, "MrScraperLoader")
 
-    def test_version_exported(self):
-        import langchain_mrscraper
-        assert hasattr(langchain_mrscraper, "__version__")
-        assert isinstance(langchain_mrscraper.__version__, str)
+def test_toolkit_filter_by_name(fake_client: MagicMock) -> None:
+    toolkit = MrScraperToolkit(client=fake_client, tool_names=["mrscraper_fetch_html"])
+    tools = toolkit.get_tools()
+    assert [tool.name for tool in tools] == ["mrscraper_fetch_html"]
+
+
+def test_load_function_raises_without_client_or_token() -> None:
+    with patch("langchain_mrscraper.tools.os.getenv", return_value=None):
+        with pytest.raises(ValueError, match="Either client, token, or mrscraper_api_key"):
+            load_mrscraper_tools()
+
+
+def test_load_function_creates_client_from_token() -> None:
+    with patch("langchain_mrscraper.tools.MrScraper") as mocked_client_cls:
+        mocked_client_cls.return_value = MagicMock()
+        tools = load_mrscraper_tools(token="token-123")
+    assert len(tools) == 8
+    mocked_client_cls.assert_called_once_with(token="token-123")
+
+
+def test_tool_can_init_with_token() -> None:
+    fake_client = MagicMock()
+    fake_client.fetch_html = AsyncMock(
+        return_value={"status_code": 200, "data": "<html></html>", "headers": {}}
+    )
+    with patch("langchain_mrscraper.tools.MrScraper", return_value=fake_client) as mocked_client_cls:
+        tool = MrScraperFetchHTML(token="token-xyz")
+        raw = tool.invoke({"url": "https://example.com"})
+    parsed = _parse_result(raw)
+    assert parsed["status_code"] == 200
+    mocked_client_cls.assert_called_once_with(token="token-xyz")
+
+
+def test_tool_uses_env_api_key_when_token_not_passed() -> None:
+    fake_client = MagicMock()
+    fake_client.fetch_html = AsyncMock(
+        return_value={"status_code": 200, "data": "<html></html>", "headers": {}}
+    )
+    with patch("langchain_mrscraper.tools.MrScraper", return_value=fake_client) as mocked_client_cls:
+        with patch.dict("os.environ", {"MRSCRAPER_API_KEY": "env-key-123"}, clear=False):
+            tool = MrScraperFetchHTML()
+            tool.invoke({"url": "https://example.com"})
+    mocked_client_cls.assert_called_once_with(token="env-key-123")
+
+
+def test_exports() -> None:
+    import langchain_mrscraper
+
+    assert hasattr(langchain_mrscraper, "MrScraperToolkit")
+    assert hasattr(langchain_mrscraper, "load_mrscraper_tools")
+    assert hasattr(langchain_mrscraper, "__version__")

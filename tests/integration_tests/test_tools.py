@@ -1,144 +1,81 @@
-"""
-Integration tests for langchain-mrscraper tools.
-
-These tests hit the REAL MrScraper API. All API responses are
-automatically saved into debug_results/*.json
-
-Run with:
-    MRSCRAPER_API_TOKEN=your_token pytest tests/integration_tests/ -m integration -v
-"""
+"""Integration tests for langchain-mrscraper (real API smoke tests)."""
 
 from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
 
 import pytest
 
-from langchain_mrscraper import (
-    MrScraperCreateScraperTool,
-    MrScraperFetchHTMLTool,
-    MrScraperGetAllResultsTool,
-    MrScraperGetResultByIdTool,
-    MrScraperRerunManualScraperTool,
-    MrScraperRerunScraperTool,
-    MrScraperLoader,
-)
+from langchain_mrscraper import MrScraperCreateScraper, MrScraperToolkit
 
-MRSCRAPER_TOKEN = os.environ.get("MRSCRAPER_API_TOKEN", "")
-DEBUG_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "debug_results")
+MRSCRAPER_TOKEN = os.getenv("MRSCRAPER_API_KEY") or os.getenv("MRSCRAPER_API_TOKEN")
 
 
-def save_result(test_name: str, result: dict):
-    os.makedirs(DEBUG_DIR, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{test_name}_{timestamp}.json"
-    filepath = os.path.join(DEBUG_DIR, filename)
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2, ensure_ascii=False, default=str)
-    print(f"\nSaved result to: {os.path.abspath(filepath)}\n")
-
-
-def _parse_result(result):
-    """Extract JSON from tool result (handles both raw string and ToolMessage)."""
-    content = result.content if hasattr(result, "content") else result
-    return json.loads(content)
+def _parse_result(output: str) -> dict:
+    return json.loads(output)
 
 
 @pytest.fixture(scope="module")
-def api_token():
+def api_token() -> str:
     if not MRSCRAPER_TOKEN:
-        pytest.skip("Set MRSCRAPER_API_TOKEN env var to run integration tests.")
+        pytest.skip("Set MRSCRAPER_API_KEY or MRSCRAPER_API_TOKEN to run integration tests.")
     return MRSCRAPER_TOKEN
 
 
 @pytest.fixture(scope="module")
-def tools(api_token):
-    return MrScraperLoader(token=api_token).load()
+def toolkit(api_token: str) -> MrScraperToolkit:
+    return MrScraperToolkit(token=api_token)
 
 
-@pytest.fixture(scope="module")
-def fetch_tool(api_token):
-    from mrscraper import MrScraper
-    client = MrScraper(token=api_token)
-    return MrScraperFetchHTMLTool(client=client)
-
-
-@pytest.fixture(scope="module")
-def get_all_results_tool(api_token):
-    from mrscraper import MrScraper
-    client = MrScraper(token=api_token)
-    return MrScraperGetAllResultsTool(client=client)
-
-# Integration tests
 @pytest.mark.integration
-class TestMrScraperLoaderIntegration:
-    def test_load_all_tools(self, tools):
-        assert len(tools) == 8
-        names = {t.name for t in tools}
-        assert "mrscraper_fetch_html" in names
-        assert "mrscraper_create_scraper" in names
-        assert "mrscraper_get_all_results" in names
+def test_toolkit_loads_all_tools(toolkit: MrScraperToolkit) -> None:
+    tools = toolkit.get_tools()
+    assert len(tools) == 8
+    assert {tool.name for tool in tools} >= {
+        "mrscraper_fetch_html",
+        "mrscraper_create_scraper",
+        "mrscraper_get_all_results",
+    }
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-class TestFetchHTMLIntegration:
-    async def test_fetch_html_returns_200_and_html(self, fetch_tool):
-        raw = await fetch_tool.ainvoke({"url": "https://books.toscrape.com/"})
-        result = _parse_result(raw)
-        save_result("fetch_html_basic", result)
+async def test_fetch_html_returns_html(toolkit: MrScraperToolkit) -> None:
+    tools = {tool.name: tool for tool in toolkit.get_tools()}
+    fetch_tool = tools["mrscraper_fetch_html"]
+    raw = await fetch_tool.ainvoke({"url": "https://books.toscrape.com/"})
+    result = _parse_result(raw)
 
-        assert isinstance(result, dict)
-        assert result["status_code"] == 200
-        assert "data" in result
-        assert "<html" in result["data"].lower()
+    assert result["status_code"] == 200
+    assert "<html" in result["data"].lower()
 
-    async def test_fetch_html_respects_geo_code(self, fetch_tool):
-        raw = await fetch_tool.ainvoke({
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_get_all_results_returns_data(toolkit: MrScraperToolkit) -> None:
+    tools = {tool.name: tool for tool in toolkit.get_tools()}
+    get_all_tool = tools["mrscraper_get_all_results"]
+    raw = await get_all_tool.ainvoke({"page": 1, "page_size": 2})
+    result = _parse_result(raw)
+
+    assert result["status_code"] == 200
+    assert "data" in result
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_create_scraper_returns_identifier(api_token: str) -> None:
+    tool = MrScraperCreateScraper(token=api_token)
+    raw = await tool.ainvoke(
+        {
             "url": "https://books.toscrape.com/",
-            "geo_code": "US",
-            "timeout": 60,
-        })
-        result = _parse_result(raw)
-        save_result("fetch_html_geo_us", result)
-
-        assert isinstance(result, dict)
-        assert result["status_code"] == 200
-        assert "data" in result
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-class TestGetAllResultsIntegration:
-    async def test_get_all_results_returns_structure(self, get_all_results_tool):
-        raw = await get_all_results_tool.ainvoke({
-            "page": 1,
-            "page_size": 5,
-        })
-        result = _parse_result(raw)
-        save_result("get_all_results", result)
-
-        assert result["status_code"] == 200
-        assert "data" in result
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-class TestCreateScraperIntegration:
-    async def test_create_scraper_general_returns_id(self, api_token):
-        from mrscraper import MrScraper
-        client = MrScraper(token=api_token)
-        tool = MrScraperCreateScraperTool(client=client)
-        raw = await tool.ainvoke({
-            "url": "https://books.toscrape.com/",
-            "message": "Extract the main heading text only.",
+            "message": "Extract the store title.",
             "agent": "general",
-        })
-        result = _parse_result(raw)
-        save_result("create_scraper_general", result)
+        }
+    )
+    result = _parse_result(raw)
+    payload = result["data"]["data"]
 
-        assert result["status_code"] == 200 or result["status_code"] == 201
-        assert "data" in result
-        assert "id" in result["data"]["data"] or "scraperId" in result["data"]["data"]
+    assert result["status_code"] in {200, 201}
+    assert "id" in payload or "scraperId" in payload

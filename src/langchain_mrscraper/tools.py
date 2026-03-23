@@ -1,380 +1,368 @@
-"""
-LangChain tools for the MrScraper API.
-
-Each tool wraps a MrScraper client method with a Pydantic args schema
-so LLMs can invoke them via tool calls.
-"""
+"""LangChain tools for the MrScraper web scraping API."""
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Literal, Type
+import json
+import os
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Literal, Optional, Sequence, Type
 
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
 from mrscraper import MrScraper
 
-class FetchHTMLInput(BaseModel):
-    """Input for fetching rendered HTML from a URL."""
 
-    url: str = Field(description="The full URL to fetch (e.g. https://example.com/page)")
-    timeout: int = Field(default=120, description="Maximum seconds to wait for the page (default 120)")
-    geo_code: str = Field(default="US", description="ISO country code for proxy geo (e.g. US, GB, SG)")
+def _serialize_response(result: dict[str, Any]) -> str:
+    """Convert API response dict to tool output text."""
+    return json.dumps(result, indent=2, default=str)
+
+
+def _run_coro_sync(coro: Any) -> Any:
+    """Run coroutine from sync context, including active event loop environments."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    # When already in an event loop (e.g. notebooks), run coroutine in a fresh loop
+    # inside a worker thread to avoid nested-loop RuntimeError.
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(asyncio.run, coro)
+        return future.result()
+
+
+class FetchHTMLInput(BaseModel):
+    """Input schema for fetching rendered HTML."""
+
+    url: str = Field(description="The full URL to fetch.")
+    timeout: int = Field(default=120, description="Max seconds to wait for page load.")
+    geo_code: str = Field(default="US", description="Two-letter proxy country code.")
     block_resources: bool = Field(
         default=False,
-        description="If True, block images/CSS/fonts to speed up the request",
+        description="Whether to block image/CSS/font resources for faster loading.",
     )
 
 
 class CreateScraperInput(BaseModel):
-    """Input for creating and running an AI-powered scraper."""
+    """Input schema for creating and running an AI scraper."""
 
-    url: str = Field(description="Target URL to scrape")
-    message: str = Field(
-        description="Natural-language description of what to extract (e.g. 'Extract all product names and prices')",
-    )
+    url: str = Field(description="Target URL to scrape.")
+    message: str = Field(description="Natural-language extraction instructions.")
     agent: Literal["general", "listing", "map"] = Field(
         default="general",
-        description="Agent type: general (any page), listing (listings/grids), map (crawl sub-pages)",
+        description="Scraper mode: general, listing, or map.",
     )
-    proxy_country: str | None = Field(default=None, description="ISO country code for proxy (e.g. US, GB)")
-    max_depth: int = Field(default=2, description="(Map agent only) Crawl depth from start URL")
-    max_pages: int = Field(default=50, description="(Map agent only) Max pages to process")
-    limit: int = Field(default=1000, description="(Map agent only) Max records to extract")
-    include_patterns: str = Field(default="", description="(Map agent only) ||-separated URL regex to include")
-    exclude_patterns: str = Field(default="", description="(Map agent only) ||-separated URL regex to exclude")
+    proxy_country: Optional[str] = Field(default=None, description="Two-letter proxy country code.")
+    max_depth: int = Field(default=2, description="Map mode: crawl depth.")
+    max_pages: int = Field(default=50, description="Map mode: max pages to crawl.")
+    limit: int = Field(default=1000, description="Map mode: max records to extract.")
+    include_patterns: str = Field(default="", description="Map mode: include URL regex patterns.")
+    exclude_patterns: str = Field(default="", description="Map mode: exclude URL regex patterns.")
 
 
 class RerunScraperInput(BaseModel):
-    """Input for rerunning an existing AI scraper on a (new) URL."""
+    """Input schema for rerunning an AI scraper."""
 
-    scraper_id: str = Field(description="ID of the scraper to rerun (from create_scraper)")
-    url: str = Field(description="Target URL; can be the original or a different page")
-    max_depth: int = Field(default=2, description="(Map agent only) Crawl depth")
-    max_pages: int = Field(default=50, description="(Map agent only) Max pages")
-    limit: int = Field(default=1000, description="(Map agent only) Max records")
-    include_patterns: str = Field(default="", description="(Map agent only) Include URL patterns")
-    exclude_patterns: str = Field(default="", description="(Map agent only) Exclude URL patterns")
+    scraper_id: str = Field(description="Existing AI scraper ID.")
+    url: str = Field(description="URL to run the scraper against.")
+    max_depth: int = Field(default=2, description="Map mode: crawl depth.")
+    max_pages: int = Field(default=50, description="Map mode: max pages to crawl.")
+    limit: int = Field(default=1000, description="Map mode: max records to extract.")
+    include_patterns: str = Field(default="", description="Map mode: include URL regex patterns.")
+    exclude_patterns: str = Field(default="", description="Map mode: exclude URL regex patterns.")
 
 
 class BulkRerunAIScraperInput(BaseModel):
-    """Input for rerunning an AI scraper on multiple URLs in one batch."""
+    """Input schema for bulk rerunning an AI scraper."""
 
-    scraper_id: str = Field(description="ID of the AI scraper to rerun")
-    urls: list[str] = Field(
-        description="List of target URLs to scrape (at least one required)",
-        min_length=1,
-    )
+    scraper_id: str = Field(description="Existing AI scraper ID.")
+    urls: list[str] = Field(min_length=1, description="One or more target URLs.")
 
 
 class RerunManualScraperInput(BaseModel):
-    """Input for rerunning a manually configured scraper on a single URL."""
+    """Input schema for rerunning a manual scraper."""
 
-    scraper_id: str = Field(description="ID of the manual scraper (from MrScraper dashboard)")
-    url: str = Field(description="Target URL; page structure should match scraper's target")
+    scraper_id: str = Field(description="Manual scraper ID from MrScraper dashboard.")
+    url: str = Field(description="URL to run the scraper against.")
 
 
 class BulkRerunManualScraperInput(BaseModel):
-    """Input for rerunning a manual scraper on multiple URLs in one batch."""
+    """Input schema for bulk rerunning a manual scraper."""
 
-    scraper_id: str = Field(description="ID of the manual scraper")
-    urls: list[str] = Field(
-        description="List of target URLs (at least one required)",
-        min_length=1,
-    )
+    scraper_id: str = Field(description="Manual scraper ID from MrScraper dashboard.")
+    urls: list[str] = Field(min_length=1, description="One or more target URLs.")
 
 
 class GetAllResultsInput(BaseModel):
-    """Input for listing scraping results with pagination and filters."""
+    """Input schema for listing results."""
 
     sort_field: Literal[
-        "createdAt", "updatedAt", "id", "type", "url", "status", "error", "tokenUsage", "runtime"
-    ] = Field(default="updatedAt", description="Field to sort by")
-    sort_order: Literal["ASC", "DESC"] = Field(default="DESC", description="Sort order")
-    page_size: int = Field(default=10, description="Results per page")
-    page: int = Field(default=1, description="Page number (1-indexed)")
-    search: str | None = Field(default=None, description="Free-text search across result fields")
-    date_range_column: str | None = Field(default=None, description="Column for date filter (e.g. updatedAt)")
-    start_at: str | None = Field(default=None, description="ISO-8601 start date for date range")
-    end_at: str | None = Field(default=None, description="ISO-8601 end date for date range")
+        "createdAt",
+        "updatedAt",
+        "id",
+        "type",
+        "url",
+        "status",
+        "error",
+        "tokenUsage",
+        "runtime",
+    ] = Field(default="updatedAt", description="Field used for sorting.")
+    sort_order: Literal["ASC", "DESC"] = Field(default="DESC", description="Sort direction.")
+    page_size: int = Field(default=10, description="Results per page.")
+    page: int = Field(default=1, description="Page number, starting at 1.")
+    search: Optional[str] = Field(default=None, description="Free text search string.")
+    date_range_column: Optional[str] = Field(default=None, description="Date field for range filtering.")
+    start_at: Optional[str] = Field(default=None, description="ISO-8601 start date.")
+    end_at: Optional[str] = Field(default=None, description="ISO-8601 end date.")
 
 
 class GetResultByIdInput(BaseModel):
-    """Input for fetching a single scraping result by ID."""
+    """Input schema for fetching a single result."""
 
-    result_id: str = Field(description="Unique ID of the result (from scraper runs or get_all_results)")
-
-
-def _serialize_response(result: dict[str, Any]) -> str:
-    """Convert API response to a string suitable for tool output."""
-    import json
-    try:
-        return json.dumps(result, indent=2, default=str)
-    except Exception:
-        return str(result)
+    result_id: str = Field(description="MrScraper result ID.")
 
 
-class MrScraperFetchHTMLTool(BaseTool):
-    """Fetch the rendered HTML of a page via the MrScraper stealth browser."""
+class MrScraperBaseTool(BaseTool):
+    """Base class for all MrScraper tools."""
+
+    client: Any = Field(default=None, exclude=True, repr=False)
+    token: Optional[str] = Field(default=None, exclude=True, repr=False)
+    mrscraper_api_key: Optional[str] = Field(default=None, exclude=True, repr=False)
+
+    @staticmethod
+    def _first_arg_or_kwargs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Normalize args for direct and low-level calls."""
+        if args and isinstance(args[0], dict):
+            return {**kwargs, **args[0]}
+        return kwargs
+
+    def _resolve_token(self) -> str:
+        token = (
+            self.token
+            or self.mrscraper_api_key
+            or os.getenv("MRSCRAPER_API_KEY")
+            or os.getenv("MRSCRAPER_API_TOKEN")
+        )
+        if not token:
+            raise ValueError(
+                "Missing MrScraper API key. Pass `token` or `mrscraper_api_key` when "
+                "initializing the tool, or set MRSCRAPER_API_KEY / MRSCRAPER_API_TOKEN."
+            )
+        return token
+
+    def _get_client(self) -> MrScraper:
+        if self.client is None:
+            self.client = MrScraper(token=self._resolve_token())
+        return self.client
+
+
+class MrScraperFetchHTML(MrScraperBaseTool):
+    """Fetch rendered HTML for a webpage."""
 
     name: str = "mrscraper_fetch_html"
     description: str = (
-        "Fetch the rendered HTML of a webpage using MrScraper's stealth browser. "
-        "Use this when you need raw HTML from a URL (handles JavaScript, bot detection, optional geo proxy)."
+        "Fetch rendered HTML using MrScraper's stealth browser. "
+        "Useful when you need full page HTML after JavaScript execution."
     )
     args_schema: Type[BaseModel] = FetchHTMLInput
-    client: MrScraper = Field(exclude=True, description="MrScraper API client")
 
-    def _run(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        return asyncio.run(self._arun(args))
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
 
-    async def _arun(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        result = await self.client.fetch_html(
-            url=args["url"],
-            timeout=args.get("timeout", 120),
-            geo_code=args.get("geo_code", "US"),
-            block_resources=args.get("block_resources", False),
-        )
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await self._get_client().fetch_html(**kwargs)
         return _serialize_response(result)
 
 
-class MrScraperCreateScraperTool(BaseTool):
-    """Create and run an AI-powered scraper with natural-language instructions."""
+class MrScraperCreateScraper(MrScraperBaseTool):
+    """Create and run an AI scraper."""
 
     name: str = "mrscraper_create_scraper"
     description: str = (
-        "Create an AI scraper that extracts data from a URL based on a natural-language message. "
-        "Returns scraper ID for later reruns. Agent types: general (any page), listing (product/list pages), map (crawl site)."
+        "Create and run an AI-powered scraper from natural-language instructions. "
+        "Returns scraper metadata, including scraper ID for follow-up runs."
     )
     args_schema: Type[BaseModel] = CreateScraperInput
-    client: MrScraper = Field(exclude=True, description="MrScraper API client")
 
-    def _run(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        return asyncio.run(self._arun(args))
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
 
-    async def _arun(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        result = await self.client.create_scraper(
-            url=args["url"],
-            message=args["message"],
-            agent=args.get("agent", "general"),
-            proxy_country=args.get("proxy_country"),
-            max_depth=args.get("max_depth", 2),
-            max_pages=args.get("max_pages", 50),
-            limit=args.get("limit", 1000),
-            include_patterns=args.get("include_patterns", ""),
-            exclude_patterns=args.get("exclude_patterns", ""),
-        )
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await self._get_client().create_scraper(**kwargs)
         return _serialize_response(result)
 
 
-class MrScraperRerunScraperTool(BaseTool):
-    """Rerun an existing AI scraper on a (new) URL."""
+class MrScraperRerunScraper(MrScraperBaseTool):
+    """Rerun an existing AI scraper."""
 
     name: str = "mrscraper_rerun_scraper"
     description: str = (
-        "Rerun an existing AI scraper on a URL. Reuses extraction logic from a previously created scraper."
+        "Rerun an existing AI scraper on a different URL while preserving extraction logic."
     )
     args_schema: Type[BaseModel] = RerunScraperInput
-    client: MrScraper = Field(exclude=True, description="MrScraper API client")
 
-    def _run(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        return asyncio.run(self._arun(args))
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
 
-    async def _arun(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        result = await self.client.rerun_scraper(
-            scraper_id=args["scraper_id"],
-            url=args["url"],
-            max_depth=args.get("max_depth", 2),
-            max_pages=args.get("max_pages", 50),
-            limit=args.get("limit", 1000),
-            include_patterns=args.get("include_patterns", ""),
-            exclude_patterns=args.get("exclude_patterns", ""),
-        )
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await self._get_client().rerun_scraper(**kwargs)
         return _serialize_response(result)
 
 
-class MrScraperBulkRerunAIScraperTool(BaseTool):
-    """Rerun an AI scraper on multiple URLs in one batch."""
+class MrScraperBulkRerunAIScraper(MrScraperBaseTool):
+    """Rerun an AI scraper for multiple URLs."""
 
     name: str = "mrscraper_bulk_rerun_ai_scraper"
-    description: str = (
-        "Rerun an AI scraper on multiple URLs in a single batch. More efficient than rerunning one by one."
-    )
+    description: str = "Bulk rerun an AI scraper across multiple URLs."
     args_schema: Type[BaseModel] = BulkRerunAIScraperInput
-    client: MrScraper = Field(exclude=True, description="MrScraper API client")
 
-    def _run(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        return asyncio.run(self._arun(args))
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
 
-    async def _arun(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        result = await self.client.bulk_rerun_ai_scraper(
-            scraper_id=args["scraper_id"],
-            urls=args["urls"],
-        )
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await self._get_client().bulk_rerun_ai_scraper(**kwargs)
         return _serialize_response(result)
 
 
-class MrScraperRerunManualScraperTool(BaseTool):
-    """Rerun a manually configured scraper (dashboard) on a single URL."""
+class MrScraperRerunManualScraper(MrScraperBaseTool):
+    """Rerun a dashboard-defined manual scraper."""
 
     name: str = "mrscraper_rerun_manual_scraper"
-    description: str = (
-        "Rerun a manually configured scraper (created in MrScraper dashboard) on a new URL."
-    )
+    description: str = "Rerun a manual dashboard scraper on a target URL."
     args_schema: Type[BaseModel] = RerunManualScraperInput
-    client: MrScraper = Field(exclude=True, description="MrScraper API client")
 
-    def _run(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        return asyncio.run(self._arun(args))
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
 
-    async def _arun(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        result = await self.client.rerun_manual_scraper(
-            scraper_id=args["scraper_id"],
-            url=args["url"],
-        )
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await self._get_client().rerun_manual_scraper(**kwargs)
         return _serialize_response(result)
 
 
-class MrScraperBulkRerunManualScraperTool(BaseTool):
-    """Rerun a manual scraper on multiple URLs in one batch."""
+class MrScraperBulkRerunManualScraper(MrScraperBaseTool):
+    """Rerun a manual scraper for multiple URLs."""
 
     name: str = "mrscraper_bulk_rerun_manual_scraper"
     description: str = (
-        "Rerun a manual scraper on multiple URLs in a single batch. Use get_all_results or get_result_by_id to fetch results."
+        "Bulk rerun a manual scraper across multiple URLs in one request."
     )
     args_schema: Type[BaseModel] = BulkRerunManualScraperInput
-    client: MrScraper = Field(exclude=True, description="MrScraper API client")
 
-    def _run(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        return asyncio.run(self._arun(args))
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
 
-    async def _arun(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        result = await self.client.bulk_rerun_manual_scraper(
-            scraper_id=args["scraper_id"],
-            urls=args["urls"],
-        )
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await self._get_client().bulk_rerun_manual_scraper(**kwargs)
         return _serialize_response(result)
 
 
-class MrScraperGetAllResultsTool(BaseTool):
-    """List all scraping results with pagination and filters."""
+class MrScraperGetAllResults(MrScraperBaseTool):
+    """Get paginated scraping results."""
 
     name: str = "mrscraper_get_all_results"
     description: str = (
-        "Retrieve a paginated, sortable list of all scraping results. Can filter by search and date range."
+        "List scraping results with pagination, sorting, search, and date filters."
     )
     args_schema: Type[BaseModel] = GetAllResultsInput
-    client: MrScraper = Field(exclude=True, description="MrScraper API client")
 
-    def _run(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        return asyncio.run(self._arun(args))
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
 
-    async def _arun(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        result = await self.client.get_all_results(
-            sort_field=args.get("sort_field", "updatedAt"),
-            sort_order=args.get("sort_order", "DESC"),
-            page_size=args.get("page_size", 10),
-            page=args.get("page", 1),
-            search=args.get("search"),
-            date_range_column=args.get("date_range_column"),
-            start_at=args.get("start_at"),
-            end_at=args.get("end_at"),
-        )
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await self._get_client().get_all_results(**kwargs)
         return _serialize_response(result)
 
 
-class MrScraperGetResultByIdTool(BaseTool):
-    """Fetch a single scraping result by its ID."""
+class MrScraperGetResultById(MrScraperBaseTool):
+    """Get one scraping result by ID."""
 
     name: str = "mrscraper_get_result_by_id"
-    description: str = "Retrieve full details of a specific scraping result by its ID."
+    description: str = "Fetch a specific scraping result by result ID."
     args_schema: Type[BaseModel] = GetResultByIdInput
-    client: MrScraper = Field(exclude=True, description="MrScraper API client")
 
-    def _run(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        return asyncio.run(self._arun(args))
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
 
-    async def _arun(self, tool_input: dict[str, Any] | None = None, **kwargs: Any) -> str:
-        args = tool_input if tool_input is not None else kwargs
-        result = await self.client.get_result_by_id(result_id=args["result_id"])
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await self._get_client().get_result_by_id(**kwargs)
         return _serialize_response(result)
 
-_TOOL_CLASSES = [
-    MrScraperFetchHTMLTool,
-    MrScraperCreateScraperTool,
-    MrScraperRerunScraperTool,
-    MrScraperBulkRerunAIScraperTool,
-    MrScraperRerunManualScraperTool,
-    MrScraperBulkRerunManualScraperTool,
-    MrScraperGetAllResultsTool,
-    MrScraperGetResultByIdTool,
-]
+
+TOOL_CLASSES: tuple[type[MrScraperBaseTool], ...] = (
+    MrScraperFetchHTML,
+    MrScraperCreateScraper,
+    MrScraperRerunScraper,
+    MrScraperBulkRerunAIScraper,
+    MrScraperRerunManualScraper,
+    MrScraperBulkRerunManualScraper,
+    MrScraperGetAllResults,
+    MrScraperGetResultById,
+)
 
 
-class MrScraperLoader:
-    """
-    Loader for MrScraper LangChain tools.
+def load_mrscraper_tools(
+    *,
+    token: Optional[str] = None,
+    mrscraper_api_key: Optional[str] = None,
+    client: Optional[MrScraper] = None,
+    tool_names: Optional[Sequence[str]] = None,
+) -> list[BaseTool]:
+    """Construct a configured list of MrScraper tools."""
+    resolved_client = client
+    resolved_token = (
+        token
+        or mrscraper_api_key
+        or os.getenv("MRSCRAPER_API_KEY")
+        or os.getenv("MRSCRAPER_API_TOKEN")
+    )
+    if resolved_client is None:
+        if resolved_token is None:
+            raise ValueError(
+                "Either client, token, or mrscraper_api_key must be provided "
+                "(or set MRSCRAPER_API_KEY / MRSCRAPER_API_TOKEN)."
+            )
+        resolved_client = MrScraper(token=resolved_token)
 
-    Provide either ``token`` or an existing ``client``. If both are given, ``client`` is used.
+    tools = [tool_cls(client=resolved_client) for tool_cls in TOOL_CLASSES]
+    if tool_names is None:
+        return tools
 
-    Args:
-        token: MrScraper API token (from https://app.mrscraper.com). Ignored if client is set.
-        client: Existing MrScraper client. If None, one is created from token.
-        tool_names: If set, only tools whose name is in this list are returned.
-                    Default is all tools.
+    requested = set(tool_names)
+    return [tool for tool in tools if tool.name in requested]
 
-    Example::
 
-        from langchain_mrscraper import MrScraperLoader
-
-        loader = MrScraperLoader(token="MRSCRAPER_API_TOKEN")
-        tools = loader.load()
-        # Use with an agent
-        agent = create_react_agent(model, tools)
-    """
+class MrScraperToolkit:
+    """Factory object that returns configured MrScraper LangChain tools."""
 
     def __init__(
         self,
-        token: str | None = None,
-        client: MrScraper | None = None,
         *,
-        tool_names: list[str] | None = None,
+        token: Optional[str] = None,
+        mrscraper_api_key: Optional[str] = None,
+        client: Optional[MrScraper] = None,
+        tool_names: Optional[Sequence[str]] = None,
     ) -> None:
         self._token = token
+        self._mrscraper_api_key = mrscraper_api_key
         self._client = client
         self._tool_names = tool_names
 
-    def load(self) -> list[BaseTool]:
-        """
-        Create and return LangChain tools for the MrScraper API.
+    def get_tools(self) -> list[BaseTool]:
+        """Return a list of MrScraper tools ready for LangChain agents."""
+        return load_mrscraper_tools(
+            token=self._token,
+            mrscraper_api_key=self._mrscraper_api_key,
+            client=self._client,
+            tool_names=self._tool_names,
+        )
 
-        Returns:
-            List of BaseTool instances ready for use with LangChain agents.
-        """
-        client = self._client
-        if client is None:
-            if self._token is None:
-                raise ValueError("Either token or client must be provided")
-            client = MrScraper(token=self._token)
-
-        tools = [cls(client=client) for cls in _TOOL_CLASSES]
-        if self._tool_names is not None:
-            names_set = set(self._tool_names)
-            tools = [t for t in tools if t.name in names_set]
-        return tools

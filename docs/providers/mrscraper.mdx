@@ -1,0 +1,44 @@
+---
+title: "MrScraper integrations"
+description: "Integrate with MrScraper using LangChain Python."
+---
+
+[MrScraper](https://mrscraper.com) provides web scraping APIs for rendered HTML retrieval, AI-based extraction, scraper reruns, and result management.
+
+## Installation and setup
+
+<CodeGroup>
+```bash pip
+pip install langchain-mrscraper
+```
+
+```bash uv
+uv add langchain-mrscraper
+```
+</CodeGroup>
+
+Set your API token:
+
+```python
+import os
+os.environ["MRSCRAPER_API_KEY"] = "your-api-token"
+```
+
+## Toolkit
+
+```python
+from langchain_mrscraper import MrScraperToolkit
+
+tools = MrScraperToolkit().get_tools()
+```
+
+## Tool integrations
+
+- [MrScraper fetch HTML](/oss/python/integrations/tools/mrscraper_fetch_html)
+- [MrScraper create scraper](/oss/python/integrations/tools/mrscraper_create_scraper)
+- [MrScraper rerun scraper](/oss/python/integrations/tools/mrscraper_rerun_scraper)
+- [MrScraper bulk rerun AI scraper](/oss/python/integrations/tools/mrscraper_bulk_rerun_ai_scraper)
+- [MrScraper rerun manual scraper](/oss/python/integrations/tools/mrscraper_rerun_manual_scraper)
+- [MrScraper bulk rerun manual scraper](/oss/python/integrations/tools/mrscraper_bulk_rerun_manual_scraper)
+- [MrScraper get all results](/oss/python/integrations/tools/mrscraper_get_all_results)
+- [MrScraper get result by ID](/oss/python/integrations/tools/mrscraper_get_result_by_id)
