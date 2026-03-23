@@ -16,7 +16,7 @@ from langchain_mrscraper import (
     MrScraperGetAllResults,
     MrScraperGetResultById,
     MrScraperRerunManualScraper,
-    MrScraperRerunScraper,
+    MrScraperRerunAIScraper,
     MrScraperToolkit,
     load_mrscraper_tools,
 )
@@ -24,7 +24,7 @@ from langchain_mrscraper import (
 ALL_TOOL_CLASSES = [
     MrScraperFetchHTML,
     MrScraperCreateScraper,
-    MrScraperRerunScraper,
+    MrScraperRerunAIScraper,
     MrScraperBulkRerunAIScraper,
     MrScraperRerunManualScraper,
     MrScraperBulkRerunManualScraper,

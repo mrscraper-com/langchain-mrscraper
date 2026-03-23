@@ -10,7 +10,7 @@ from .tools import (
     MrScraperGetAllResults,
     MrScraperGetResultById,
     MrScraperRerunManualScraper,
-    MrScraperRerunScraper,
+    MrScraperRerunAIScraper,
     MrScraperToolkit,
     load_mrscraper_tools,
 )
@@ -20,7 +20,7 @@ __all__ = [
     "MrScraperToolkit",
     "MrScraperFetchHTML",
     "MrScraperCreateScraper",
-    "MrScraperRerunScraper",
+    "MrScraperRerunAIScraper",
     "MrScraperBulkRerunAIScraper",
     "MrScraperRerunManualScraper",
     "MrScraperBulkRerunManualScraper",

@@ -62,7 +62,7 @@ class CreateScraperInput(BaseModel):
     exclude_patterns: str = Field(default="", description="Map mode: exclude URL regex patterns.")
 
 
-class RerunScraperInput(BaseModel):
+class RerunAIScraperInput(BaseModel):
     """Input schema for rerunning an AI scraper."""
 
     scraper_id: str = Field(description="Existing AI scraper ID.")
@@ -196,14 +196,14 @@ class MrScraperCreateScraper(MrScraperBaseTool):
         return _serialize_response(result)
 
 
-class MrScraperRerunScraper(MrScraperBaseTool):
+class MrScraperRerunAIScraper(MrScraperBaseTool):
     """Rerun an existing AI scraper."""
 
-    name: str = "mrscraper_rerun_scraper"
+    name: str = "mrscraper_rerun_ai_scraper"
     description: str = (
         "Rerun an existing AI scraper on a different URL while preserving extraction logic."
     )
-    args_schema: Type[BaseModel] = RerunScraperInput
+    args_schema: Type[BaseModel] = RerunAIScraperInput
 
     def _run(self, *args: Any, **kwargs: Any) -> str:
         params = self._first_arg_or_kwargs(args, kwargs)
@@ -301,7 +301,7 @@ class MrScraperGetResultById(MrScraperBaseTool):
 TOOL_CLASSES: tuple[type[MrScraperBaseTool], ...] = (
     MrScraperFetchHTML,
     MrScraperCreateScraper,
-    MrScraperRerunScraper,
+    MrScraperRerunAIScraper,
     MrScraperBulkRerunAIScraper,
     MrScraperRerunManualScraper,
     MrScraperBulkRerunManualScraper,
