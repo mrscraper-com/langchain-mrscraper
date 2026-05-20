@@ -5,6 +5,7 @@ LangChain integration package for the [MrScraper SDK](https://pypi.org/project/m
 This package exposes MrScraper capabilities as LangChain tools so agents can:
 
 - Fetch rendered HTML from protected websites
+- Scrape Google SERP (search results) synchronously
 - Create AI scrapers from natural-language prompts
 - Rerun AI/manual scrapers (single and bulk)
 - List and fetch scraping results
@@ -47,6 +48,7 @@ agent = create_react_agent(ChatOpenAI(model="gpt-4o-mini"), tools)
 
 ## Available tools
 
+- `mrscraper_google_serp`
 - `mrscraper_fetch_html`
 - `mrscraper_create_scraper`
 - `mrscraper_rerun_ai_scraper`

@@ -8,15 +8,69 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Literal, Optional, Sequence, Type
 
+import httpx
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
 from mrscraper import MrScraper
 
+_GOOGLE_SERP_SYNC_URL = "https://sync.scraper.mrscraper.com/api/google/serp/sync"
+
 
 def _serialize_response(result: dict[str, Any]) -> str:
     """Convert API response dict to tool output text."""
     return json.dumps(result, indent=2, default=str)
+
+
+async def _google_serp_sync(
+    token: str,
+    *,
+    url: str,
+    raw: bool = True,
+    session_cookie: Optional[str] = None,
+    timeout: float = 600.0,
+) -> dict[str, Any]:
+    """Call the MrScraper Google SERP sync API."""
+    bearer = token.removeprefix("Bearer ").strip()
+    headers: dict[str, str] = {
+        "Authorization": f"Bearer {bearer}",
+        "Content-Type": "application/json",
+        "accept": "application/json",
+    }
+    if session_cookie and session_cookie.strip():
+        headers["Cookie"] = session_cookie.strip()
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                _GOOGLE_SERP_SYNC_URL,
+                headers=headers,
+                json={"url": url, "raw": raw},
+                timeout=timeout,
+            )
+
+            if response.status_code == 401:
+                return {
+                    "error": (
+                        "Unauthorized or invalid access token. "
+                        "Use a valid sync API bearer token from MrScraper."
+                    ),
+                    "status_code": response.status_code,
+                }
+
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "").lower()
+            data: Any = (
+                response.json() if "application/json" in content_type else response.text
+            )
+            return {
+                "status_code": response.status_code,
+                "data": data,
+                "headers": dict(response.headers),
+            }
+    except httpx.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        return {"error": str(exc), "status_code": status_code}
 
 
 def _run_coro_sync(coro: Any) -> Any:
@@ -31,6 +85,29 @@ def _run_coro_sync(coro: Any) -> Any:
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(asyncio.run, coro)
         return future.result()
+
+
+class GoogleSerpInput(BaseModel):
+    """Input schema for Google SERP sync scraping."""
+
+    url: str = Field(
+        description=(
+            "Full Google search URL "
+            '(e.g. "https://www.google.com/search?q=iphone+17").'
+        )
+    )
+    raw: bool = Field(
+        default=True,
+        description="When true, request raw SERP/HTML output from the API.",
+    )
+    session_cookie: Optional[str] = Field(
+        default=None,
+        description='Optional Cookie header (e.g. "sl-session=...") if required.',
+    )
+    timeout: float = Field(
+        default=600.0,
+        description="HTTP client timeout in seconds.",
+    )
 
 
 class FetchHTMLInput(BaseModel):
@@ -156,6 +233,26 @@ class MrScraperBaseTool(BaseTool):
         if self.client is None:
             self.client = MrScraper(token=self._resolve_token())
         return self.client
+
+
+class MrScraperGoogleSerp(MrScraperBaseTool):
+    """Fetch Google search results via the SERP sync API."""
+
+    name: str = "mrscraper_google_serp"
+    description: str = (
+        "Scrape Google search results (SERP) synchronously via MrScraper's sync API. "
+        "Provide a full Google search URL. Responses can be large—summarize or store "
+        "externally instead of echoing the full payload into the conversation."
+    )
+    args_schema: Type[BaseModel] = GoogleSerpInput
+
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        params = self._first_arg_or_kwargs(args, kwargs)
+        return _run_coro_sync(self._arun(**params))
+
+    async def _arun(self, **kwargs: Any) -> str:
+        result = await _google_serp_sync(self._resolve_token(), **kwargs)
+        return _serialize_response(result)
 
 
 class MrScraperFetchHTML(MrScraperBaseTool):
@@ -299,6 +396,7 @@ class MrScraperGetResultById(MrScraperBaseTool):
 
 
 TOOL_CLASSES: tuple[type[MrScraperBaseTool], ...] = (
+    MrScraperGoogleSerp,
     MrScraperFetchHTML,
     MrScraperCreateScraper,
     MrScraperRerunAIScraper,

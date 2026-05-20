@@ -9,6 +9,7 @@ from .tools import (
     MrScraperFetchHTML,
     MrScraperGetAllResults,
     MrScraperGetResultById,
+    MrScraperGoogleSerp,
     MrScraperRerunManualScraper,
     MrScraperRerunAIScraper,
     MrScraperToolkit,
@@ -18,6 +19,7 @@ from .tools import (
 __all__ = [
     "load_mrscraper_tools",
     "MrScraperToolkit",
+    "MrScraperGoogleSerp",
     "MrScraperFetchHTML",
     "MrScraperCreateScraper",
     "MrScraperRerunAIScraper",
