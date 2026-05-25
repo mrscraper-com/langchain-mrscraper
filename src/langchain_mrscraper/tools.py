@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 
 from mrscraper import MrScraper
 
+from langchain_mrscraper._compliance import manual_scraper_tool_description
+
 _GOOGLE_SERP_SYNC_URL = "https://sync.scraper.mrscraper.com/api/google/serp/sync"
 
 
@@ -331,7 +333,10 @@ class MrScraperRerunManualScraper(MrScraperBaseTool):
     """Rerun a dashboard-defined manual scraper."""
 
     name: str = "mrscraper_rerun_manual_scraper"
-    description: str = "Rerun a manual dashboard scraper on a target URL."
+    description: str = manual_scraper_tool_description(
+        "Rerun a manual dashboard scraper on a target URL. "
+        "Manual scrapers may include login-protected workflows configured in the MrScraper dashboard."
+    )
     args_schema: Type[BaseModel] = RerunManualScraperInput
 
     def _run(self, *args: Any, **kwargs: Any) -> str:
@@ -347,8 +352,9 @@ class MrScraperBulkRerunManualScraper(MrScraperBaseTool):
     """Rerun a manual scraper for multiple URLs."""
 
     name: str = "mrscraper_bulk_rerun_manual_scraper"
-    description: str = (
-        "Bulk rerun a manual scraper across multiple URLs in one request."
+    description: str = manual_scraper_tool_description(
+        "Bulk rerun a manual scraper across multiple URLs in one request. "
+        "Manual scrapers may include login-protected workflows configured in the MrScraper dashboard."
     )
     args_schema: Type[BaseModel] = BulkRerunManualScraperInput
 
