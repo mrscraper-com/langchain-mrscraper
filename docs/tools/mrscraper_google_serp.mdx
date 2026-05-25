@@ -1,0 +1,49 @@
+---
+title: "MrScraperGoogleSerp integration"
+description: "Scrape Google SERP results using MrScraper in LangChain."
+---
+
+`MrScraperGoogleSerp` runs a synchronous Google SERP scrape via MrScraper's sync API (`/api/google/serp/sync`).
+
+## Setup
+
+```bash
+pip install -U langchain-mrscraper
+```
+
+```python
+import os
+from langchain_mrscraper import MrScraperGoogleSerp
+
+# Option 1: pass API key directly
+tool = MrScraperGoogleSerp(mrscraper_api_key="your-api-key")
+
+# Option 2: auto-read from environment variable
+os.environ["MRSCRAPER_API_KEY"] = "your-api-key"
+tool = MrScraperGoogleSerp()
+```
+
+## Invocation
+
+```python
+result = tool.invoke(
+    {
+        "url": "https://www.google.com/search?q=iphone+17",
+        "raw": True,
+    }
+)
+print(result)
+```
+
+## Parameters
+
+| Parameter | Type | Description |
+| :-- | :-- | :-- |
+| `url` | `str` | Full Google search URL to fetch |
+| `raw` | `bool` | Request raw SERP/HTML output (default: `True`) |
+| `session_cookie` | `str \| None` | Optional `Cookie` header if your deployment requires it |
+| `timeout` | `float` | HTTP timeout in seconds (default: `600`) |
+
+## Notes
+
+SERP responses can be very large. Prefer summarizing or storing results externally instead of loading the full payload into the model context.

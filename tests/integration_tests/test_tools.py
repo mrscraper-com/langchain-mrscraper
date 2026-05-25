@@ -31,8 +31,9 @@ def toolkit(api_token: str) -> MrScraperToolkit:
 @pytest.mark.integration
 def test_toolkit_loads_all_tools(toolkit: MrScraperToolkit) -> None:
     tools = toolkit.get_tools()
-    assert len(tools) == 8
+    assert len(tools) == 9
     assert {tool.name for tool in tools} >= {
+        "mrscraper_google_serp",
         "mrscraper_fetch_html",
         "mrscraper_create_scraper",
         "mrscraper_get_all_results",

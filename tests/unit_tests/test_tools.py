@@ -15,6 +15,7 @@ from langchain_mrscraper import (
     MrScraperFetchHTML,
     MrScraperGetAllResults,
     MrScraperGetResultById,
+    MrScraperGoogleSerp,
     MrScraperRerunManualScraper,
     MrScraperRerunAIScraper,
     MrScraperToolkit,
@@ -22,6 +23,7 @@ from langchain_mrscraper import (
 )
 
 ALL_TOOL_CLASSES = [
+    MrScraperGoogleSerp,
     MrScraperFetchHTML,
     MrScraperCreateScraper,
     MrScraperRerunAIScraper,
@@ -91,10 +93,35 @@ async def test_async_tool_invocation_routes_to_client(fake_client: MagicMock) ->
     assert fake_client.create_scraper.call_args.kwargs["message"] == "Extract titles and prices"
 
 
+@pytest.mark.asyncio
+async def test_google_serp_invocation() -> None:
+    serp_response = {
+        "status_code": 200,
+        "data": {"organic": []},
+        "headers": {},
+    }
+    with patch(
+        "langchain_mrscraper.tools._google_serp_sync",
+        new=AsyncMock(return_value=serp_response),
+    ) as mocked_serp:
+        tool = MrScraperGoogleSerp(token="atk_test")
+        output = await tool.ainvoke(
+            {
+                "url": "https://www.google.com/search?q=iphone+17",
+                "raw": True,
+            }
+        )
+    parsed = _parse_result(output)
+    assert parsed["status_code"] == 200
+    mocked_serp.assert_called_once()
+    assert mocked_serp.call_args.kwargs["url"] == "https://www.google.com/search?q=iphone+17"
+    assert mocked_serp.call_args.kwargs["raw"] is True
+
+
 def test_toolkit_get_tools_with_client(fake_client: MagicMock) -> None:
     toolkit = MrScraperToolkit(client=fake_client)
     tools = toolkit.get_tools()
-    assert len(tools) == 8
+    assert len(tools) == 9
 
 
 def test_toolkit_filter_by_name(fake_client: MagicMock) -> None:
@@ -113,7 +140,7 @@ def test_load_function_creates_client_from_token() -> None:
     with patch("langchain_mrscraper.tools.MrScraper") as mocked_client_cls:
         mocked_client_cls.return_value = MagicMock()
         tools = load_mrscraper_tools(token="token-123")
-    assert len(tools) == 8
+    assert len(tools) == 9
     mocked_client_cls.assert_called_once_with(token="token-123")
 
 
