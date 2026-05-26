@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.tools import BaseTool
 
+from langchain_mrscraper._compliance import COMPLIANCE_MANUAL_SCRAPER_TITLE
 from langchain_mrscraper import (
     MrScraperBulkRerunAIScraper,
     MrScraperBulkRerunManualScraper,
@@ -61,6 +62,19 @@ def test_tool_structure(tool_cls: type[BaseTool], fake_client: MagicMock) -> Non
     assert len(tool.description) > 10
     schema = tool.args_schema.model_json_schema()
     assert "properties" in schema
+
+
+@pytest.mark.parametrize(
+    "tool_cls",
+    [MrScraperRerunManualScraper, MrScraperBulkRerunManualScraper],
+)
+def test_manual_scraper_tools_include_compliance_warning(
+    tool_cls: type[BaseTool], fake_client: MagicMock
+) -> None:
+    tool = tool_cls(client=fake_client)
+    assert COMPLIANCE_MANUAL_SCRAPER_TITLE in tool.description
+    assert "login-protected pages" in tool.description
+    assert "Terms of Service" in tool.description
 
 
 def test_tool_names_unique(fake_client: MagicMock) -> None:
