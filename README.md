@@ -30,7 +30,7 @@ uv add langchain-mrscraper
 import os
 from langchain_mrscraper import MrScraperToolkit
 
-os.environ["MRSCRAPER_API_KEY"] = "your-token"
+os.environ["MRSCRAPER_API_TOKEN"] = "your-token"
 
 tools = MrScraperToolkit().get_tools()
 ```
@@ -64,8 +64,8 @@ You can initialize via:
 
 - `MrScraperToolkit(...).get_tools()` (recommended)
 - `load_mrscraper_tools(...)` convenience function
-- per-tool constructors with `token="..."` or `mrscraper_api_key="..."`
-- environment variables `MRSCRAPER_API_KEY` (preferred) or `MRSCRAPER_API_TOKEN`
+- per-tool constructors with `token="..."`
+- environment variables `MRSCRAPER_API_TOKEN`
 
 ## Tools vs. loaders
 
