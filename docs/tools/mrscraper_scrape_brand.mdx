@@ -1,0 +1,34 @@
+---
+title: "MrScraperBrand integration"
+description: "Start a brand scraping job using MrScraper in LangChain."
+---
+
+`MrScraperBrand` wraps the Python SDK's `scrape_brand` service and is registered as `mrscraper_scrape_brand`.
+
+## Setup and invocation
+
+```bash
+pip install -U langchain-mrscraper
+```
+
+```python
+from langchain_mrscraper import MrScraperBrand
+
+tool = MrScraperBrand(token="your-api-token")
+result = tool.invoke({"url": "https://www.brooksrunning.com", "bundle": "clean"})
+print(result)
+```
+
+Use `await tool.ainvoke(...)` for async invocation. Authentication also supports `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN`; an existing SDK client can be supplied with `client=...`.
+
+## Parameters and behavior
+
+`bundle` accepts `clean` (default), `full`, or `none`. Read the job ID from the API response and pass it to `MrScraperGetBrand` for follow-up.
+
+## Shared scraping controls
+
+Page tools accept `timeout`, `geo_code`, `proxy_country`, `block_resources`, `super`, `use_proxy`, `proxy`, `wait_for_selector`, `wait_until`, `home_page` (API `warmStart`), `bypass_proxy`, `cookie_jar`, `headers`, `max_retries`, `token_cap`, `stream`, and `discard_token_secret`. All except screenshot also accept `browser_rendering`. Format flags and agents are selected by the SDK.
+
+## Result format
+
+Tool output is a JSON string with `status_code`, `data`, and `headers`. Text and JSON are preserved. Binary images and ZIP files use `{"encoding": "base64", "base64": "...", "size_bytes": 123}` in `data`; decode with `base64.b64decode(result["data"]["base64"])` after `json.loads(...)`. The response content type is retained in `headers`.

@@ -1,47 +1,41 @@
 ---
 title: "MrScraper integrations"
-description: "Integrate with MrScraper using LangChain Python."
+description: "Use the MrScraper Python SDK services as LangChain tools."
 ---
 
-[MrScraper](https://mrscraper.com) provides web scraping APIs for rendered HTML retrieval, AI-based extraction, scraper reruns, and result management.
+The integration exposes all ten public services from `mrscraper-sdk>=0.7.0`: HTML, Markdown, screenshots, JSON extraction, listing extraction, sitemap discovery, brand jobs, Google search, and account usage.
 
 ## Installation and setup
 
-<CodeGroup>
-```bash pip
-pip install langchain-mrscraper
+```bash
+pip install -U langchain-mrscraper
 ```
-
-```bash uv
-uv add langchain-mrscraper
-```
-</CodeGroup>
-
-Set your API token:
 
 ```python
 import os
-os.environ["MRSCRAPER_API_KEY"] = "your-api-token"
-```
-
-## Toolkit
-
-```python
 from langchain_mrscraper import MrScraperToolkit
 
+os.environ["MRSCRAPER_API_KEY"] = "your-api-token"
 tools = MrScraperToolkit().get_tools()
 ```
 
-## Tool integrations
+`token`, `mrscraper_api_key`, `MRSCRAPER_API_KEY`, and `MRSCRAPER_API_TOKEN` are supported. Inject an SDK client with `client=...`, or select exact tool names with `tool_names=["mrscraper_scraper_json", "mrscraper_scraper_sitemap"]`. Every tool supports both `.invoke(...)` and `await .ainvoke(...)`.
 
-The MrScraper integration provides several tools:
+## Current tool integrations
 
-- [MrScraper Google SERP](/oss/python/integrations/tools/mrscraper_google_serp) - Scrape Google search results synchronously via the SERP sync API (full Google search URL, optional raw output and session cookie)
-- [MrScraper Unblocker](/oss/python/integrations/tools/mrscraper_fetch_html) - Fetch rendered HTML through the unblocker (stealth browser and IP rotation) when pages are geo-restricted or bot-protected
-- [MrScraper create AI scraper](/oss/python/integrations/tools/mrscraper_create_scraper) - Create an AI scraper run from natural-language instructions with general, listing, or map agents and optional proxy country
-- [MrScraper rerun AI scraper](/oss/python/integrations/tools/mrscraper_rerun_ai_scraper) - Rerun an existing AI scraper configuration on a new URL (including map-agent crawl options when applicable)
-- [MrScraper bulk rerun AI scraper](/oss/python/integrations/tools/mrscraper_bulk_rerun_ai_scraper) - Run one AI scraper configuration across many URLs in a single bulk job
-- [MrScraper rerun manual scraper](/oss/python/integrations/tools/mrscraper_rerun_manual_scraper) - Execute a dashboard-built manual workflow scraper on a URL, with optional workflow overrides
-- [MrScraper bulk rerun manual scraper](/oss/python/integrations/tools/mrscraper_bulk_rerun_manual_scraper) - Run one manual scraper configuration across many URLs in a single bulk job
-- [MrScraper get all results](/oss/python/integrations/tools/mrscraper_get_all_results) - List scrape results with pagination, sorting, search, and optional date-range filters
-- [MrScraper get result by ID](/oss/python/integrations/tools/mrscraper_get_result_by_id) - Retrieve the full detail for a single scrape result by its result ID
+- [MrScraperHTML](/oss/python/integrations/tools/mrscraper_scraper_html) — Retrieve page HTML.
+- [MrScraperMarkdown](/oss/python/integrations/tools/mrscraper_scraper_markdown) — Retrieve page Markdown.
+- [MrScraperScreenshot](/oss/python/integrations/tools/mrscraper_get_screenshot) — Capture a page screenshot.
+- [MrScraperJSON](/oss/python/integrations/tools/mrscraper_scraper_json) — Extract structured page data.
+- [MrScraperMultiplePage](/oss/python/integrations/tools/mrscraper_scraper_multiple_page) — Extract entries across listing pages.
+- [MrScraperSitemap](/oss/python/integrations/tools/mrscraper_scraper_sitemap) — Discover URLs from a site.
+- [MrScraperBrand](/oss/python/integrations/tools/mrscraper_scrape_brand) — Start a brand scraping job.
+- [MrScraperGetBrand](/oss/python/integrations/tools/mrscraper_get_brand) — Read or download a brand job.
+- [MrScraperWebSearch](/oss/python/integrations/tools/mrscraper_web_search) — Search Google synchronously.
+- [MrScraperAccount](/oss/python/integrations/tools/mrscraper_account) — Read account usage and quota.
+
+## Migration
+
+`MrScraperFetchHTML` and `MrScraperGoogleSerp` remain import aliases for `MrScraperHTML` and `MrScraperWebSearch`, with current tool names. The old create/rerun/bulk/result-management operations are removed. Use `MrScraperJSON` / `MrScraperMultiplePage` with `prompt` for extraction and `MrScraperSitemap` for discovery.
+
+The shared low-level scraper API remains internal. Format-specific tools do not expose HTML, Markdown, or screenshot flags. Binary tool results use a lossless base64 envelope; see the screenshot or brand-download documentation.

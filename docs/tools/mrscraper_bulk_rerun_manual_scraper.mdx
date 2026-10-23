@@ -1,46 +1,10 @@
 ---
-title: "MrScraperBulkRerunManualScraper integration"
-description: "Bulk rerun manual MrScraper dashboard scrapers in LangChain."
+title: "mrscraper_bulk_rerun_manual_scraper migration"
+description: "Migrate from the earlier MrScraper integration."
 ---
 
-`MrScraperBulkRerunManualScraper` reruns one manual scraper against multiple URLs in a batch.
+This legacy tool has been removed because its SDK method is absent from `mrscraper-sdk>=0.7.0`. It is not exported or included in the current toolkit.
 
-## Setup
+Use `MrScraperJSON` or `MrScraperMultiplePage` per extraction request. Dashboard workflow execution is outside the current SDK services.
 
-```python
-import os
-from langchain_mrscraper import MrScraperBulkRerunManualScraper
-
-# Option 1: pass API key directly
-tool = MrScraperBulkRerunManualScraper(mrscraper_api_key="your-api-key")
-
-# Option 2: auto-read from environment variable
-os.environ["MRSCRAPER_API_KEY"] = "your-api-key"
-tool = MrScraperBulkRerunManualScraper()
-```
-
-## Invocation
-
-```python
-from langchain_mrscraper import MrScraperBulkRerunManualScraper
-
-tool = MrScraperBulkRerunManualScraper(mrscraper_api_key="your-api-key")
-
-result = tool.invoke(
-    {
-        "scraper_id": "scraper_uuid",
-        "urls": [
-            "https://example.com/item1",
-            "https://example.com/item2",
-        ],
-    }
-)
-print(result)
-```
-
-## Parameters
-
-| Parameter | Type | Description |
-| :-- | :-- | :-- |
-| `scraper_id` | `str` | Manual scraper ID |
-| `urls` | `list[str]` | Target URL list |
+See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the ten current services.

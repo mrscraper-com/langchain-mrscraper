@@ -1,0 +1,30 @@
+---
+title: "MrScraperGetBrand integration"
+description: "Read or download a brand job using MrScraper in LangChain."
+---
+
+`MrScraperGetBrand` wraps the Python SDK's `get_brand` service and is registered as `mrscraper_get_brand`.
+
+## Setup and invocation
+
+```bash
+pip install -U langchain-mrscraper
+```
+
+```python
+from langchain_mrscraper import MrScraperGetBrand
+
+tool = MrScraperGetBrand(token="your-api-token")
+result = tool.invoke({"job_id": "YOUR_JOB_ID", "output": "bundle"})
+print(result)
+```
+
+Use `await tool.ainvoke(...)` for async invocation. Authentication also supports `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN`; an existing SDK client can be supplied with `client=...`.
+
+## Parameters and behavior
+
+The required `job_id` identifies a brand job. Omit `output` for metadata, or use `html`, `bundle`, `screenshot`, or `screenshot_full`. `timeout` defaults to 600 seconds. Binary downloads use the base64 envelope described below.
+
+## Result format
+
+Tool output is a JSON string with `status_code`, `data`, and `headers`. Text and JSON are preserved. Binary images and ZIP files use `{"encoding": "base64", "base64": "...", "size_bytes": 123}` in `data`; decode with `base64.b64decode(result["data"]["base64"])` after `json.loads(...)`. The response content type is retained in `headers`.

@@ -1,0 +1,34 @@
+---
+title: "MrScraperSitemap integration"
+description: "Discover URLs from a site using MrScraper in LangChain."
+---
+
+`MrScraperSitemap` wraps the Python SDK's `scraper_sitemap` service and is registered as `mrscraper_scraper_sitemap`.
+
+## Setup and invocation
+
+```bash
+pip install -U langchain-mrscraper
+```
+
+```python
+from langchain_mrscraper import MrScraperSitemap
+
+tool = MrScraperSitemap(token="your-api-token")
+result = tool.invoke({"url": "https://docs.mrscraper.com", "max_depth": 2, "max_pages": 3, "limit": 1000, "include_patterns": r"/products/.*", "exclude_patterns": r"/blog/.*"})
+print(result)
+```
+
+Use `await tool.ainvoke(...)` for async invocation. Authentication also supports `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN`; an existing SDK client can be supplied with `client=...`.
+
+## Parameters and behavior
+
+The SDK selects `agent=map`. Defaults are `max_depth=2`, `max_pages=3`, and `limit=1000`. Optional `include_patterns` / `exclude_patterns` strings are preserved unchanged and sent as `includePatterns` / `excludePatterns`; unset patterns are omitted.
+
+## Shared scraping controls
+
+Page tools accept `timeout`, `geo_code`, `proxy_country`, `block_resources`, `super`, `use_proxy`, `proxy`, `wait_for_selector`, `wait_until`, `home_page` (API `warmStart`), `bypass_proxy`, `cookie_jar`, `headers`, `max_retries`, `token_cap`, `stream`, and `discard_token_secret`. All except screenshot also accept `browser_rendering`. Format flags and agents are selected by the SDK.
+
+## Result format
+
+Tool output is a JSON string with `status_code`, `data`, and `headers`. Text and JSON are preserved. Binary images and ZIP files use `{"encoding": "base64", "base64": "...", "size_bytes": 123}` in `data`; decode with `base64.b64decode(result["data"]["base64"])` after `json.loads(...)`. The response content type is retained in `headers`.

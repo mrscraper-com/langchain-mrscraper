@@ -1,0 +1,30 @@
+---
+title: "MrScraperAccount integration"
+description: "Read account usage and quota using MrScraper in LangChain."
+---
+
+`MrScraperAccount` wraps the Python SDK's `account` service and is registered as `mrscraper_account`.
+
+## Setup and invocation
+
+```bash
+pip install -U langchain-mrscraper
+```
+
+```python
+from langchain_mrscraper import MrScraperAccount
+
+tool = MrScraperAccount(token="your-api-token")
+result = tool.invoke({})
+print(result)
+```
+
+Use `await tool.ainvoke(...)` for async invocation. Authentication also supports `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN`; an existing SDK client can be supplied with `client=...`.
+
+## Parameters and behavior
+
+Returns account identity, subscription status, token usage/limits, quota remaining, and rate limits. `timeout` defaults to 30 seconds and must be positive.
+
+## Result format
+
+Tool output is a JSON string with `status_code`, `data`, and `headers`. Text and JSON are preserved. Binary images and ZIP files use `{"encoding": "base64", "base64": "...", "size_bytes": 123}` in `data`; decode with `base64.b64decode(result["data"]["base64"])` after `json.loads(...)`. The response content type is retained in `headers`.

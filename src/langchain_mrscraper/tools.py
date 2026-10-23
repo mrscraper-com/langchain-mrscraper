@@ -1,219 +1,224 @@
-"""LangChain tools for the MrScraper web scraping API."""
+"""LangChain tools backed by the public MrScraper Python SDK services."""
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Literal, Optional, Sequence, Type
+from typing import Any, ClassVar, Literal, Optional, Union
+from urllib.parse import urlparse
 
-import httpx
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from mrscraper import MrScraper
 
-_GOOGLE_SERP_SYNC_URL = "https://sync.scraper.mrscraper.com/api/google/serp/sync"
+
+def _encode_binary(value: Any) -> dict[str, Any]:
+    """Preserve image and ZIP responses in JSON without decoding binary as text."""
+    if isinstance(value, (bytes, bytearray)):
+        return {
+            "encoding": "base64",
+            "base64": base64.b64encode(value).decode("ascii"),
+            "size_bytes": len(value),
+        }
+    raise TypeError(f"Cannot serialize {type(value).__name__} as JSON")
 
 
 def _serialize_response(result: dict[str, Any]) -> str:
-    """Convert API response dict to tool output text."""
-    return json.dumps(result, indent=2, default=str)
-
-
-async def _google_serp_sync(
-    token: str,
-    *,
-    url: str,
-    raw: bool = True,
-    session_cookie: Optional[str] = None,
-    timeout: float = 600.0,
-) -> dict[str, Any]:
-    """Call the MrScraper Google SERP sync API."""
-    bearer = token.removeprefix("Bearer ").strip()
-    headers: dict[str, str] = {
-        "Authorization": f"Bearer {bearer}",
-        "Content-Type": "application/json",
-        "accept": "application/json",
-    }
-    if session_cookie and session_cookie.strip():
-        headers["Cookie"] = session_cookie.strip()
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                _GOOGLE_SERP_SYNC_URL,
-                headers=headers,
-                json={"url": url, "raw": raw},
-                timeout=timeout,
-            )
-
-            if response.status_code == 401:
-                return {
-                    "error": (
-                        "Unauthorized or invalid access token. "
-                        "Use a valid sync API bearer token from MrScraper."
-                    ),
-                    "status_code": response.status_code,
-                }
-
-            response.raise_for_status()
-            content_type = response.headers.get("content-type", "").lower()
-            data: Any = (
-                response.json() if "application/json" in content_type else response.text
-            )
-            return {
-                "status_code": response.status_code,
-                "data": data,
-                "headers": dict(response.headers),
-            }
-    except httpx.HTTPError as exc:
-        status_code = exc.response.status_code if exc.response is not None else None
-        return {"error": str(exc), "status_code": status_code}
+    return json.dumps(result, indent=2, default=_encode_binary)
 
 
 def _run_coro_sync(coro: Any) -> Any:
-    """Run coroutine from sync context, including active event loop environments."""
+    """Support synchronous tool calls inside notebooks with a running event loop."""
     try:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(coro)
-
-    # When already in an event loop (e.g. notebooks), run coroutine in a fresh loop
-    # inside a worker thread to avoid nested-loop RuntimeError.
     with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(asyncio.run, coro)
-        return future.result()
+        return executor.submit(asyncio.run, coro).result()
 
 
-class GoogleSerpInput(BaseModel):
-    """Input schema for Google SERP sync scraping."""
+class _ToolInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    url: str = Field(
-        description=(
-            "Full Google search URL "
-            '(e.g. "https://www.google.com/search?q=iphone+17").'
+
+class _PageInput(_ToolInput):
+    """Shared page, proxy, header, and retry controls; output is chosen by the tool."""
+
+    url: str = Field(min_length=1, description="HTTP or HTTPS URL to scrape.")
+    timeout: int = Field(
+        default=120, gt=0, le=300, description="Page timeout in seconds (1–300)."
+    )
+    geo_code: str = Field(default="US", description="Geographic country code.")
+    proxy_country: Optional[str] = Field(
+        default=None, description="Proxy country code."
+    )
+    block_resources: Optional[bool] = Field(
+        default=False, description="Block page resources."
+    )
+    super: bool = Field(default=False, description="Enable the super scraping tier.")
+    use_proxy: bool = Field(default=True, description="Use a proxy for this request.")
+    proxy: Optional[str] = Field(default=None, description="Custom proxy address.")
+    wait_for_selector: Optional[str] = Field(
+        default=None, description="CSS selector to wait for."
+    )
+    wait_until: Optional[str] = Field(
+        default=None, description="Browser page-load event."
+    )
+    home_page: bool = Field(
+        default=False, description="Warm the session via the home page."
+    )
+    bypass_proxy: bool = Field(default=False, description="Bypass the proxy.")
+    cookie_jar: Optional[str] = Field(default=None, description="Request cookie jar.")
+    headers: Optional[Union[dict[str, str], str]] = Field(
+        default=None, description="Target HTTP headers."
+    )
+    max_retries: int = Field(default=3, ge=0, description="Maximum retries.")
+    token_cap: Optional[int] = Field(
+        default=None, ge=0, description="Maximum token budget."
+    )
+    stream: Optional[bool] = Field(
+        default=None, description="Request streaming from the API."
+    )
+    discard_token_secret: str = Field(
+        default="", description="Discard-token secret, if required."
+    )
+
+    @field_validator("url")
+    @classmethod
+    def _http_url(cls, value: str) -> str:
+        parsed = urlparse(value)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("url must be an HTTP or HTTPS URL")
+        return value
+
+
+class ScraperHTMLInput(_PageInput):
+    browser_rendering: Optional[bool] = Field(
+        default=None, description="Render JavaScript."
+    )
+
+
+class ScraperMarkdownInput(ScraperHTMLInput):
+    """Fetch Markdown; format flags are selected automatically."""
+
+
+class ScreenshotInput(_PageInput):
+    full_page: bool = Field(default=True, description="Capture the entire page.")
+    timeout: int = Field(
+        default=300, gt=0, le=300, description="Page timeout in seconds (1–300)."
+    )
+    wait_until: Optional[str] = Field(
+        default="domcontentloaded", description="Browser page-load event."
+    )
+
+
+class ScraperJSONInput(ScraperHTMLInput):
+    prompt: str = Field(
+        default="Extract all data as complete as possible.",
+        min_length=1,
+        description="Natural-language extraction instructions (general agent).",
+    )
+
+
+class MultiplePageInput(ScraperHTMLInput):
+    prompt: str = Field(
+        default="Extract all entry data as complete as possible.",
+        min_length=1,
+        description="Instructions for extracting listing entries across pages.",
+    )
+    max_pages: int = Field(default=3, gt=0, description="Maximum listing pages.")
+
+
+class SitemapInput(ScraperHTMLInput):
+    max_depth: int = Field(default=2, ge=0, description="Maximum crawl depth.")
+    max_pages: int = Field(default=3, gt=0, description="Maximum pages to crawl.")
+    limit: int = Field(default=1000, gt=0, description="Maximum discovered records.")
+    include_patterns: Optional[str] = Field(
+        default=None, description="Include URL pattern string, unchanged."
+    )
+    exclude_patterns: Optional[str] = Field(
+        default=None, description="Exclude URL pattern string, unchanged."
+    )
+
+
+class BrandInput(ScraperHTMLInput):
+    bundle: Literal["clean", "full", "none"] = Field(
+        default="clean", description="Brand bundle mode."
+    )
+
+
+class GetBrandInput(_ToolInput):
+    job_id: str = Field(
+        min_length=1, description="Brand job ID returned by scrape_brand."
+    )
+    output: Optional[Literal["html", "bundle", "screenshot", "screenshot_full"]] = (
+        Field(
+            default=None, description="Output to download; omit to read job metadata."
         )
+    )
+    timeout: float = Field(
+        default=600.0, gt=0, allow_inf_nan=False, description="HTTP timeout in seconds."
+    )
+
+    @field_validator("job_id")
+    @classmethod
+    def _nonblank_job_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("job_id must be non-empty")
+        return value
+
+
+class WebSearchInput(_ToolInput):
+    url: str = Field(
+        min_length=1, description="Google query text or a full Google search URL."
     )
     raw: bool = Field(
         default=True,
-        description="When true, request raw SERP/HTML output from the API.",
+        description="Compatibility option: true requests HTML and overrides format.",
     )
-    session_cookie: Optional[str] = Field(
-        default=None,
-        description='Optional Cookie header (e.g. "sl-session=...") if required.',
+    region: Optional[str] = Field(default=None, description="Search country code.")
+    language: Optional[str] = Field(default=None, description="Search language code.")
+    page: Optional[int] = Field(
+        default=None, ge=1, description="One-based result page."
+    )
+    format: Literal["json", "html"] = Field(
+        default="json", description="Response format; use raw=false for JSON."
+    )
+    render_js: bool = Field(
+        default=False, description="Render JavaScript-dependent search features."
     )
     timeout: float = Field(
-        default=600.0,
-        description="HTTP client timeout in seconds.",
+        default=600.0, gt=0, allow_inf_nan=False, description="HTTP timeout in seconds."
     )
 
+    @field_validator("url")
+    @classmethod
+    def _nonblank_query(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("url must contain a search query or Google URL")
+        return value
 
-class FetchHTMLInput(BaseModel):
-    """Input schema for fetching rendered HTML."""
 
-    url: str = Field(description="The full URL to fetch.")
-    timeout: int = Field(default=120, description="Max seconds to wait for page load.")
-    geo_code: str = Field(default="US", description="Two-letter proxy country code.")
-    block_resources: bool = Field(
-        default=False,
-        description="Whether to block image/CSS/font resources for faster loading.",
+class AccountInput(_ToolInput):
+    timeout: float = Field(
+        default=30.0, gt=0, allow_inf_nan=False, description="HTTP timeout in seconds."
     )
-
-
-class CreateScraperInput(BaseModel):
-    """Input schema for creating and running an AI scraper."""
-
-    url: str = Field(description="Target URL to scrape.")
-    message: str = Field(description="Natural-language extraction instructions.")
-    agent: Literal["general", "listing", "map"] = Field(
-        default="general",
-        description="Scraper mode: general, listing, or map.",
-    )
-    proxy_country: Optional[str] = Field(default=None, description="Two-letter proxy country code.")
-    max_depth: int = Field(default=2, description="Map mode: crawl depth.")
-    max_pages: int = Field(default=50, description="Map mode: max pages to crawl.")
-    limit: int = Field(default=1000, description="Map mode: max records to extract.")
-    include_patterns: str = Field(default="", description="Map mode: include URL regex patterns.")
-    exclude_patterns: str = Field(default="", description="Map mode: exclude URL regex patterns.")
-
-
-class RerunAIScraperInput(BaseModel):
-    """Input schema for rerunning an AI scraper."""
-
-    scraper_id: str = Field(description="Existing AI scraper ID.")
-    url: str = Field(description="URL to run the scraper against.")
-    max_depth: int = Field(default=2, description="Map mode: crawl depth.")
-    max_pages: int = Field(default=50, description="Map mode: max pages to crawl.")
-    limit: int = Field(default=1000, description="Map mode: max records to extract.")
-    include_patterns: str = Field(default="", description="Map mode: include URL regex patterns.")
-    exclude_patterns: str = Field(default="", description="Map mode: exclude URL regex patterns.")
-
-
-class BulkRerunAIScraperInput(BaseModel):
-    """Input schema for bulk rerunning an AI scraper."""
-
-    scraper_id: str = Field(description="Existing AI scraper ID.")
-    urls: list[str] = Field(min_length=1, description="One or more target URLs.")
-
-
-class RerunManualScraperInput(BaseModel):
-    """Input schema for rerunning a manual scraper."""
-
-    scraper_id: str = Field(description="Manual scraper ID from MrScraper dashboard.")
-    url: str = Field(description="URL to run the scraper against.")
-
-
-class BulkRerunManualScraperInput(BaseModel):
-    """Input schema for bulk rerunning a manual scraper."""
-
-    scraper_id: str = Field(description="Manual scraper ID from MrScraper dashboard.")
-    urls: list[str] = Field(min_length=1, description="One or more target URLs.")
-
-
-class GetAllResultsInput(BaseModel):
-    """Input schema for listing results."""
-
-    sort_field: Literal[
-        "createdAt",
-        "updatedAt",
-        "id",
-        "type",
-        "url",
-        "status",
-        "error",
-        "tokenUsage",
-        "runtime",
-    ] = Field(default="updatedAt", description="Field used for sorting.")
-    sort_order: Literal["ASC", "DESC"] = Field(default="DESC", description="Sort direction.")
-    page_size: int = Field(default=10, description="Results per page.")
-    page: int = Field(default=1, description="Page number, starting at 1.")
-    search: Optional[str] = Field(default=None, description="Free text search string.")
-    date_range_column: Optional[str] = Field(default=None, description="Date field for range filtering.")
-    start_at: Optional[str] = Field(default=None, description="ISO-8601 start date.")
-    end_at: Optional[str] = Field(default=None, description="ISO-8601 end date.")
-
-
-class GetResultByIdInput(BaseModel):
-    """Input schema for fetching a single result."""
-
-    result_id: str = Field(description="MrScraper result ID.")
 
 
 class MrScraperBaseTool(BaseTool):
-    """Base class for all MrScraper tools."""
+    """Resolve authentication and delegate both invocation styles to the SDK."""
 
+    name: str = "mrscraper"
+    description: str = "Base MrScraper SDK service wrapper."
     client: Any = Field(default=None, exclude=True, repr=False)
     token: Optional[str] = Field(default=None, exclude=True, repr=False)
     mrscraper_api_key: Optional[str] = Field(default=None, exclude=True, repr=False)
-
-    @staticmethod
-    def _first_arg_or_kwargs(args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Normalize args for direct and low-level calls."""
-        if args and isinstance(args[0], dict):
-            return {**kwargs, **args[0]}
-        return kwargs
+    sdk_method: ClassVar[str]
 
     def _resolve_token(self) -> str:
         token = (
@@ -234,177 +239,144 @@ class MrScraperBaseTool(BaseTool):
             self.client = MrScraper(token=self._resolve_token())
         return self.client
 
+    def _run(self, *args: Any, **kwargs: Any) -> str:
+        return _run_coro_sync(self._arun(*args, **kwargs))
 
-class MrScraperGoogleSerp(MrScraperBaseTool):
-    """Fetch Google search results via the SERP sync API."""
+    async def _arun(self, *args: Any, **kwargs: Any) -> str:
+        schema = self.args_schema
+        if not isinstance(schema, type) or not issubclass(schema, BaseModel):
+            raise TypeError("Tool must define a Pydantic input schema")
+        if args:
+            if len(args) != 1:
+                raise TypeError("Pass one tool input string or dictionary")
+            if isinstance(args[0], dict):
+                kwargs = {**kwargs, **args[0]}
+            elif isinstance(args[0], str):
+                # BaseTool forwards a plain string as the first positional input.
+                first_field = next(iter(schema.model_fields))
+                kwargs = {**kwargs, first_field: args[0]}
+            else:
+                raise TypeError("Tool input must be a string or dictionary")
+        # Keep explicit None values: screenshot wait_until=None must disable the
+        # SDK's default domcontentloaded wait. The SDK omits unset API fields.
+        params = schema.model_validate(kwargs).model_dump()
+        result = await getattr(self._get_client(), self.sdk_method)(**params)
+        return _serialize_response(result)
 
-    name: str = "mrscraper_google_serp"
+
+class MrScraperHTML(MrScraperBaseTool):
+    """Retrieve page HTML."""
+
+    name: str = "mrscraper_scraper_html"
     description: str = (
-        "Scrape Google search results (SERP) synchronously via MrScraper's sync API. "
-        "Provide a full Google search URL. Responses can be large—summarize or store "
-        "externally instead of echoing the full payload into the conversation."
+        "Retrieve HTML from a URL. The SDK selects HTML output automatically."
     )
-    args_schema: Type[BaseModel] = GoogleSerpInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await _google_serp_sync(self._resolve_token(), **kwargs)
-        return _serialize_response(result)
+    args_schema: type[BaseModel] = ScraperHTMLInput
+    sdk_method: ClassVar[str] = "scraper_html"
 
 
-class MrScraperFetchHTML(MrScraperBaseTool):
-    """Fetch rendered HTML for a webpage."""
+class MrScraperMarkdown(MrScraperBaseTool):
+    """Retrieve page Markdown."""
 
-    name: str = "mrscraper_fetch_html"
+    name: str = "mrscraper_scraper_markdown"
     description: str = (
-        "Fetch rendered HTML using MrScraper's stealth browser. "
-        "Useful when you need full page HTML after JavaScript execution."
+        "Retrieve Markdown from a URL. The SDK selects Markdown output automatically."
     )
-    args_schema: Type[BaseModel] = FetchHTMLInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await self._get_client().fetch_html(**kwargs)
-        return _serialize_response(result)
+    args_schema: type[BaseModel] = ScraperMarkdownInput
+    sdk_method: ClassVar[str] = "scraper_markdown"
 
 
-class MrScraperCreateScraper(MrScraperBaseTool):
-    """Create and run an AI scraper."""
+class MrScraperScreenshot(MrScraperBaseTool):
+    """Capture a screenshot."""
 
-    name: str = "mrscraper_create_scraper"
+    name: str = "mrscraper_get_screenshot"
+    description: str = "Capture a browser screenshot, full page by default. Binary data is returned as base64."
+    args_schema: type[BaseModel] = ScreenshotInput
+    sdk_method: ClassVar[str] = "get_screenshot"
+
+
+class MrScraperJSON(MrScraperBaseTool):
+    """Extract structured data from a page."""
+
+    name: str = "mrscraper_scraper_json"
     description: str = (
-        "Create and run an AI-powered scraper from natural-language instructions. "
-        "Returns scraper metadata, including scraper ID for follow-up runs."
+        "Extract structured JSON from a URL using a prompt and the general agent."
     )
-    args_schema: Type[BaseModel] = CreateScraperInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await self._get_client().create_scraper(**kwargs)
-        return _serialize_response(result)
+    args_schema: type[BaseModel] = ScraperJSONInput
+    sdk_method: ClassVar[str] = "scraper_json"
 
 
-class MrScraperRerunAIScraper(MrScraperBaseTool):
-    """Rerun an existing AI scraper."""
+class MrScraperMultiplePage(MrScraperBaseTool):
+    """Extract entries across listing pages."""
 
-    name: str = "mrscraper_rerun_ai_scraper"
+    name: str = "mrscraper_scraper_multiple_page"
+    description: str = "Extract listing entries across multiple pages using a prompt; defaults to 3 pages."
+    args_schema: type[BaseModel] = MultiplePageInput
+    sdk_method: ClassVar[str] = "scraper_multiple_page"
+
+
+class MrScraperSitemap(MrScraperBaseTool):
+    """Discover URLs with the map agent."""
+
+    name: str = "mrscraper_scraper_sitemap"
+    description: str = "Discover site URLs with crawl depth, page and record limits, and include/exclude patterns."
+    args_schema: type[BaseModel] = SitemapInput
+    sdk_method: ClassVar[str] = "scraper_sitemap"
+
+
+class MrScraperBrand(MrScraperBaseTool):
+    """Start a brand scraping job."""
+
+    name: str = "mrscraper_scrape_brand"
+    description: str = "Scrape a website's brand with a clean, full, or none bundle. Returns a job for get_brand."
+    args_schema: type[BaseModel] = BrandInput
+    sdk_method: ClassVar[str] = "scrape_brand"
+
+
+class MrScraperGetBrand(MrScraperBaseTool):
+    """Read brand job metadata or download an output."""
+
+    name: str = "mrscraper_get_brand"
+    description: str = "Read a brand job by job_id or download its HTML, bundle, or screenshot; binary data is base64."
+    args_schema: type[BaseModel] = GetBrandInput
+    sdk_method: ClassVar[str] = "get_brand"
+
+
+class MrScraperWebSearch(MrScraperBaseTool):
+    """Search Google using the SDK's v2 synchronous search service."""
+
+    name: str = "mrscraper_web_search"
+    description: str = "Search Google using query text or a Google URL. Set raw=false and format=json for structured results."
+    args_schema: type[BaseModel] = WebSearchInput
+    sdk_method: ClassVar[str] = "web_search"
+
+
+class MrScraperAccount(MrScraperBaseTool):
+    """Read account usage and subscription details."""
+
+    name: str = "mrscraper_account"
     description: str = (
-        "Rerun an existing AI scraper on a different URL while preserving extraction logic."
+        "Read account identity, subscription, quota, token usage, and rate limits."
     )
-    args_schema: Type[BaseModel] = RerunAIScraperInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await self._get_client().rerun_scraper(**kwargs)
-        return _serialize_response(result)
+    args_schema: type[BaseModel] = AccountInput
+    sdk_method: ClassVar[str] = "account"
 
 
-class MrScraperBulkRerunAIScraper(MrScraperBaseTool):
-    """Rerun an AI scraper for multiple URLs."""
-
-    name: str = "mrscraper_bulk_rerun_ai_scraper"
-    description: str = "Bulk rerun an AI scraper across multiple URLs."
-    args_schema: Type[BaseModel] = BulkRerunAIScraperInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await self._get_client().bulk_rerun_ai_scraper(**kwargs)
-        return _serialize_response(result)
-
-
-class MrScraperRerunManualScraper(MrScraperBaseTool):
-    """Rerun a dashboard-defined manual scraper."""
-
-    name: str = "mrscraper_rerun_manual_scraper"
-    description: str = "Rerun a manual dashboard scraper on a target URL."
-    args_schema: Type[BaseModel] = RerunManualScraperInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await self._get_client().rerun_manual_scraper(**kwargs)
-        return _serialize_response(result)
-
-
-class MrScraperBulkRerunManualScraper(MrScraperBaseTool):
-    """Rerun a manual scraper for multiple URLs."""
-
-    name: str = "mrscraper_bulk_rerun_manual_scraper"
-    description: str = (
-        "Bulk rerun a manual scraper across multiple URLs in one request."
-    )
-    args_schema: Type[BaseModel] = BulkRerunManualScraperInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await self._get_client().bulk_rerun_manual_scraper(**kwargs)
-        return _serialize_response(result)
-
-
-class MrScraperGetAllResults(MrScraperBaseTool):
-    """Get paginated scraping results."""
-
-    name: str = "mrscraper_get_all_results"
-    description: str = (
-        "List scraping results with pagination, sorting, search, and date filters."
-    )
-    args_schema: Type[BaseModel] = GetAllResultsInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await self._get_client().get_all_results(**kwargs)
-        return _serialize_response(result)
-
-
-class MrScraperGetResultById(MrScraperBaseTool):
-    """Get one scraping result by ID."""
-
-    name: str = "mrscraper_get_result_by_id"
-    description: str = "Fetch a specific scraping result by result ID."
-    args_schema: Type[BaseModel] = GetResultByIdInput
-
-    def _run(self, *args: Any, **kwargs: Any) -> str:
-        params = self._first_arg_or_kwargs(args, kwargs)
-        return _run_coro_sync(self._arun(**params))
-
-    async def _arun(self, **kwargs: Any) -> str:
-        result = await self._get_client().get_result_by_id(**kwargs)
-        return _serialize_response(result)
-
+# Import aliases only: the toolkit always advertises the current service names.
+MrScraperFetchHTML = MrScraperHTML
+MrScraperGoogleSerp = MrScraperWebSearch
 
 TOOL_CLASSES: tuple[type[MrScraperBaseTool], ...] = (
-    MrScraperGoogleSerp,
-    MrScraperFetchHTML,
-    MrScraperCreateScraper,
-    MrScraperRerunAIScraper,
-    MrScraperBulkRerunAIScraper,
-    MrScraperRerunManualScraper,
-    MrScraperBulkRerunManualScraper,
-    MrScraperGetAllResults,
-    MrScraperGetResultById,
+    MrScraperHTML,
+    MrScraperMarkdown,
+    MrScraperScreenshot,
+    MrScraperJSON,
+    MrScraperMultiplePage,
+    MrScraperSitemap,
+    MrScraperBrand,
+    MrScraperGetBrand,
+    MrScraperWebSearch,
+    MrScraperAccount,
 )
 
 
@@ -412,10 +384,10 @@ def load_mrscraper_tools(
     *,
     token: Optional[str] = None,
     mrscraper_api_key: Optional[str] = None,
-    client: Optional[MrScraper] = None,
-    tool_names: Optional[Sequence[str]] = None,
+    client: MrScraper | None = None,
+    tool_names: Sequence[str] | None = None,
 ) -> list[BaseTool]:
-    """Construct a configured list of MrScraper tools."""
+    """Construct tools with one shared SDK client and optional exact-name filtering."""
     resolved_client = client
     resolved_token = (
         token
@@ -424,31 +396,32 @@ def load_mrscraper_tools(
         or os.getenv("MRSCRAPER_API_TOKEN")
     )
     if resolved_client is None:
-        if resolved_token is None:
+        if not resolved_token:
             raise ValueError(
                 "Either client, token, or mrscraper_api_key must be provided "
                 "(or set MRSCRAPER_API_KEY / MRSCRAPER_API_TOKEN)."
             )
         resolved_client = MrScraper(token=resolved_token)
 
-    tools = [tool_cls(client=resolved_client) for tool_cls in TOOL_CLASSES]
+    tools: list[BaseTool] = [
+        tool_cls(client=resolved_client) for tool_cls in TOOL_CLASSES
+    ]
     if tool_names is None:
         return tools
-
     requested = set(tool_names)
     return [tool for tool in tools if tool.name in requested]
 
 
 class MrScraperToolkit:
-    """Factory object that returns configured MrScraper LangChain tools."""
+    """Factory object that returns the ten public SDK services as LangChain tools."""
 
     def __init__(
         self,
         *,
         token: Optional[str] = None,
         mrscraper_api_key: Optional[str] = None,
-        client: Optional[MrScraper] = None,
-        tool_names: Optional[Sequence[str]] = None,
+        client: MrScraper | None = None,
+        tool_names: Sequence[str] | None = None,
     ) -> None:
         self._token = token
         self._mrscraper_api_key = mrscraper_api_key
@@ -456,11 +429,9 @@ class MrScraperToolkit:
         self._tool_names = tool_names
 
     def get_tools(self) -> list[BaseTool]:
-        """Return a list of MrScraper tools ready for LangChain agents."""
         return load_mrscraper_tools(
             token=self._token,
             mrscraper_api_key=self._mrscraper_api_key,
             client=self._client,
             tool_names=self._tool_names,
         )
-

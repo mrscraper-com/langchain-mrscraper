@@ -1,46 +1,10 @@
 ---
-title: "MrScraperBulkRerunAIScraper integration"
-description: "Bulk rerun AI scrapers with MrScraper in LangChain."
+title: "mrscraper_bulk_rerun_ai_scraper migration"
+description: "Migrate from the earlier MrScraper integration."
 ---
 
-`MrScraperBulkRerunAIScraper` reruns one AI scraper against multiple URLs in one request.
+This legacy tool has been removed because its SDK method is absent from `mrscraper-sdk>=0.7.0`. It is not exported or included in the current toolkit.
 
-## Setup
+Use `MrScraperJSON` or `MrScraperMultiplePage` per extraction request. The current integration does not expose a bulk-rerun endpoint.
 
-```python
-import os
-from langchain_mrscraper import MrScraperBulkRerunAIScraper
-
-# Option 1: pass API key directly
-tool = MrScraperBulkRerunAIScraper(mrscraper_api_key="your-api-key")
-
-# Option 2: auto-read from environment variable
-os.environ["MRSCRAPER_API_KEY"] = "your-api-key"
-tool = MrScraperBulkRerunAIScraper()
-```
-
-## Invocation
-
-```python
-from langchain_mrscraper import MrScraperBulkRerunAIScraper
-
-tool = MrScraperBulkRerunAIScraper(mrscraper_api_key="your-api-key")
-
-result = tool.invoke(
-    {
-        "scraper_id": "scraper_uuid",
-        "urls": [
-            "https://example.com/p1",
-            "https://example.com/p2",
-        ],
-    }
-)
-print(result)
-```
-
-## Parameters
-
-| Parameter | Type | Description |
-| :-- | :-- | :-- |
-| `scraper_id` | `str` | Existing AI scraper ID |
-| `urls` | `list[str]` | Target URL list |
+See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the ten current services.

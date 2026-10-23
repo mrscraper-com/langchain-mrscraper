@@ -1,0 +1,34 @@
+---
+title: "MrScraperHTML integration"
+description: "Retrieve page HTML using MrScraper in LangChain."
+---
+
+`MrScraperHTML` wraps the Python SDK's `scraper_html` service and is registered as `mrscraper_scraper_html`.
+
+## Setup and invocation
+
+```bash
+pip install -U langchain-mrscraper
+```
+
+```python
+from langchain_mrscraper import MrScraperHTML
+
+tool = MrScraperHTML(token="your-api-token")
+result = tool.invoke({"url": "https://example.com", "browser_rendering": True})
+print(result)
+```
+
+Use `await tool.ainvoke(...)` for async invocation. Authentication also supports `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN`; an existing SDK client can be supplied with `client=...`.
+
+## Parameters and behavior
+
+The SDK sends `html=true` and omits Markdown and screenshot flags.
+
+## Shared scraping controls
+
+Page tools accept `timeout`, `geo_code`, `proxy_country`, `block_resources`, `super`, `use_proxy`, `proxy`, `wait_for_selector`, `wait_until`, `home_page` (API `warmStart`), `bypass_proxy`, `cookie_jar`, `headers`, `max_retries`, `token_cap`, `stream`, and `discard_token_secret`. All except screenshot also accept `browser_rendering`. Format flags and agents are selected by the SDK.
+
+## Result format
+
+Tool output is a JSON string with `status_code`, `data`, and `headers`. Text and JSON are preserved. Binary images and ZIP files use `{"encoding": "base64", "base64": "...", "size_bytes": 123}` in `data`; decode with `base64.b64decode(result["data"]["base64"])` after `json.loads(...)`. The response content type is retained in `headers`.
