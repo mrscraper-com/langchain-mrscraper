@@ -1,6 +1,6 @@
 ---
 title: "MrScraperWebSearch integration"
-description: "Search Google synchronously using MrScraper in LangChain."
+description: "Search the web to retrieve real-time search results, including relevant website URLs, titles, descriptions, and related questions based on a given query."
 ---
 
 `MrScraperWebSearch` wraps the Python SDK's `web_search` service and is registered as `mrscraper_web_search`.
@@ -23,7 +23,7 @@ Use `await tool.ainvoke(...)` for async invocation. Authentication also supports
 
 ## Parameters and behavior
 
-Accepts query text or a Google search URL and delegates to the SDK v2 sync service (`/api/google/serp/v2/sync`). For compatibility `raw=True` is the default and selects HTML regardless of `format`; set `raw=False` for JSON. Optional controls are `region`, `language`, `page` (one-based), `render_js` (default false), and `timeout` (default 600 seconds).
+The required `url` parameter contains the search query. For compatibility `raw=True` is the default and selects HTML regardless of `format`; set `raw=False` for JSON. Optional controls are `region`, `language`, `page` (one-based), `render_js` (default false), and `timeout` (default 600 seconds).
 
 ## Result format
 

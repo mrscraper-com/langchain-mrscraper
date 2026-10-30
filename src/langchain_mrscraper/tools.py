@@ -174,9 +174,7 @@ class GetBrandInput(_ToolInput):
 
 
 class WebSearchInput(_ToolInput):
-    url: str = Field(
-        min_length=1, description="Google query text or a full Google search URL."
-    )
+    url: str = Field(min_length=1, description="The search query.")
     raw: bool = Field(
         default=True,
         description="Compatibility option: true requests HTML and overrides format.",
@@ -200,7 +198,7 @@ class WebSearchInput(_ToolInput):
     @classmethod
     def _nonblank_query(cls, value: str) -> str:
         if not value.strip():
-            raise ValueError("url must contain a search query or Google URL")
+            raise ValueError("url must contain a search query")
         return value
 
 
@@ -343,10 +341,10 @@ class MrScraperGetBrand(MrScraperBaseTool):
 
 
 class MrScraperWebSearch(MrScraperBaseTool):
-    """Search Google using the SDK's v2 synchronous search service."""
+    """Search the web using MrScraper."""
 
     name: str = "mrscraper_web_search"
-    description: str = "Search Google using query text or a Google URL. Set raw=false and format=json for structured results."
+    description: str = "Search the web to retrieve real-time search results, including relevant website URLs, titles, descriptions, and related questions based on a given query. Set raw=false and format=json for structured results."
     args_schema: type[BaseModel] = WebSearchInput
     sdk_method: ClassVar[str] = "web_search"
 

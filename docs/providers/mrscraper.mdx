@@ -3,7 +3,7 @@ title: "MrScraper integrations"
 description: "Use the MrScraper Python SDK services as LangChain tools."
 ---
 
-The integration exposes all ten public services from `mrscraper-sdk>=0.7.0`: HTML, Markdown, screenshots, JSON extraction, listing extraction, sitemap discovery, brand jobs, Google search, and account usage.
+The integration exposes all ten public services from `mrscraper-sdk>=0.7.0`: HTML, Markdown, screenshots, JSON extraction, listing extraction, sitemap discovery, brand jobs, Web Search, and account usage.
 
 ## Installation and setup
 
@@ -31,11 +31,11 @@ tools = MrScraperToolkit().get_tools()
 - [MrScraperSitemap](/oss/python/integrations/tools/mrscraper_scraper_sitemap) — Discover URLs from a site.
 - [MrScraperBrand](/oss/python/integrations/tools/mrscraper_scrape_brand) — Start a brand scraping job.
 - [MrScraperGetBrand](/oss/python/integrations/tools/mrscraper_get_brand) — Read or download a brand job.
-- [MrScraperWebSearch](/oss/python/integrations/tools/mrscraper_web_search) — Search Google synchronously.
+- [MrScraperWebSearch](/oss/python/integrations/tools/mrscraper_web_search) — Search the web to retrieve real-time search results, including relevant website URLs, titles, descriptions, and related questions based on a given query.
 - [MrScraperAccount](/oss/python/integrations/tools/mrscraper_account) — Read account usage and quota.
 
 ## Migration
 
-`MrScraperFetchHTML` and `MrScraperGoogleSerp` remain import aliases for `MrScraperHTML` and `MrScraperWebSearch`, with current tool names. The old create/rerun/bulk/result-management operations are removed. Use `MrScraperJSON` / `MrScraperMultiplePage` with `prompt` for extraction and `MrScraperSitemap` for discovery.
+Use `MrScraperHTML` for HTML retrieval and `MrScraperWebSearch` for Web Search, with the tool names listed above. The old create/rerun/bulk/result-management operations are removed. Use `MrScraperJSON` / `MrScraperMultiplePage` with `prompt` for extraction and `MrScraperSitemap` for discovery.
 
 The shared low-level scraper API remains internal. Format-specific tools do not expose HTML, Markdown, or screenshot flags. Binary tool results use a lossless base64 envelope; see the screenshot or brand-download documentation.

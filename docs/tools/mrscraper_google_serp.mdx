@@ -1,8 +1,8 @@
 ---
-title: "MrScraperGoogleSerp migration"
-description: "Use MrScraperWebSearch with the current MrScraper SDK."
+title: "Web Search migration"
+description: "Migrate to the MrScraper Web Search tool."
 ---
 
-`MrScraperGoogleSerp` remains an import alias for `MrScraperWebSearch`. Its registered tool name is now `mrscraper_web_search`. Update toolkit filters and use the [current service documentation](/oss/python/integrations/tools/mrscraper_web_search).
+Use `MrScraperWebSearch` and the tool name `mrscraper_web_search`. Update toolkit filters and follow the [Web Search documentation](/oss/python/integrations/tools/mrscraper_web_search).
 
-The Google search service accepts query text or a Google search URL and uses the SDK v2 sync service. For parsed JSON, pass `raw=False` and `format="json"`; the old `session_cookie` argument is removed.
+Search the web to retrieve real-time search results, including relevant website URLs, titles, descriptions, and related questions based on a given query. Pass the query in `url`. For parsed JSON, set `raw=False` and `format="json"`. The old `session_cookie` argument is removed.
