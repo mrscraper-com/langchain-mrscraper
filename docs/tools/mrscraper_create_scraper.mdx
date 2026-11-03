@@ -3,8 +3,8 @@ title: "mrscraper_create_scraper migration"
 description: "Migrate from the earlier MrScraper integration."
 ---
 
-This legacy tool has been removed because its SDK method is absent from `mrscraper-sdk>=0.7.0`. It is not exported or included in the current toolkit.
+This legacy tool has been removed because its SDK method is absent from `mrscraper-sdk`. It is not exported or included in the current toolkit.
 
-Use `MrScraperJSON` for general extraction, `MrScraperMultiplePage` for listing extraction, or `MrScraperSitemap` for map discovery. Rename extraction `message` to `prompt`; each tool chooses its agent automatically.
+Fetch the page with [`MrScraperScraperAPI`](/oss/python/integrations/tools/mrscraper_scraper_api) (HTML or Markdown) and let your model extract the fields you need.
 
-See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the ten current services.
+See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the three current tools.

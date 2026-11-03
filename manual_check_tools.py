@@ -3,15 +3,16 @@
 This spends API quota. It is not collected by pytest.
 
 Usage:
-    python manual_check_tools.py                       # run all tools
-    python manual_check_tools.py --only mrscraper_account mrscraper_scraper_html
-    python manual_check_tools.py --skip mrscraper_scrape_brand mrscraper_get_brand
+    python manual_check_tools.py                       # run all cases
+    python manual_check_tools.py --only mrscraper_account mrscraper_web_search
+    python manual_check_tools.py --skip scraper_api_combined
     python manual_check_tools.py --async               # use ainvoke instead of invoke
-    python manual_check_tools.py --brand-job-id JOB_ID --brand-output screenshot
+
+--only/--skip accept a tool name (all of its cases) or a case label.
 
 The token is read from --token, MRSCRAPER_API_KEY / MRSCRAPER_API_TOKEN, or the
 repo's .env file. Full responses are written to debug_results/ (git-ignored);
-base64 binary payloads (screenshots, brand bundles) are also decoded to files.
+screenshots (base64 in the response) are also decoded to image files.
 """
 
 from __future__ import annotations
@@ -31,58 +32,27 @@ from typing import Any, Optional
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from langchain_mrscraper import MrScraperToolkit  # noqa: E402
+from langchain_mrscraper import MrScraperToolkit
 
-MIN_SDK = (0, 7, 0)
+MIN_SDK = (0, 8, 0)
+MAX_SDK = (0, 9, 0)
+URL = "https://books.toscrape.com/"
 
-# One representative input per tool, in run order. Account goes first because it
-# is cheap and confirms the token before quota is spent on scraping.
-CASES: list[tuple[str, dict[str, Any]]] = [
-    ("mrscraper_account", {}),
-    ("mrscraper_scraper_html", {"url": "https://books.toscrape.com/"}),
-    ("mrscraper_scraper_markdown", {"url": "https://books.toscrape.com/"}),
+# (case label, tool name, input) in run order. Account goes first because it is
+# cheap and confirms the token before quota is spent on scraping.
+CASES: list[tuple[str, str, dict[str, Any]]] = [
+    ("account", "mrscraper_account", {}),
+    ("scraper_api_html", "mrscraper_scraper_api", {"url": URL}),
     (
-        "mrscraper_get_screenshot",
-        {"url": "https://books.toscrape.com/", "full_page": False},
+        "scraper_api_combined",
+        "mrscraper_scraper_api",
+        {"url": URL, "html": True, "markdown": True, "screenshot": True},
     ),
     (
-        "mrscraper_scraper_json",
-        {
-            "url": "https://books.toscrape.com/",
-            "prompt": "Extract the first 5 book titles and prices.",
-        },
-    ),
-    (
-        "mrscraper_scraper_multiple_page",
-        {
-            "url": "https://books.toscrape.com/",
-            "prompt": "Extract every book title and price.",
-            "max_pages": 2,
-        },
-    ),
-    (
-        "mrscraper_scraper_sitemap",
-        {
-            "url": "https://books.toscrape.com/",
-            "max_depth": 1,
-            "max_pages": 2,
-            "limit": 50,
-        },
-    ),
-    (
+        "web_search",
         "mrscraper_web_search",
-        {
-            "url": "langchain web scraping",
-            "raw": False,
-            "format": "json",
-            "region": "us",
-            "language": "en",
-            "page": 1,
-        },
+        {"query": "e-menessaptieka.lv linkedin", "country": "us", "num_results": 10},
     ),
-    ("mrscraper_scrape_brand", {"url": "https://www.brooksrunning.com", "bundle": "clean"}),
-    # get_brand input is filled in from the scrape_brand result (or --brand-job-id).
-    ("mrscraper_get_brand", {}),
 ]
 
 BINARY_EXT = {
@@ -120,37 +90,21 @@ def check_sdk_version() -> None:
     except PackageNotFoundError:
         sys.exit("mrscraper-sdk is not installed. Run: pip install -e .")
     parts = tuple(int(p) for p in installed.split(".")[:3] if p.isdigit())
-    if parts < MIN_SDK:
+    if not MIN_SDK <= parts < MAX_SDK:
         sys.exit(
-            f"mrscraper-sdk {installed} is installed but >= 0.7.0 is required "
-            "(the tools call scraper_html, web_search, scrape_brand, ...).\n"
-            "Run: pip install -U 'mrscraper-sdk>=0.7.0'"
+            f"mrscraper-sdk {installed} is installed but >=0.8.0,<0.9.0 is required "
+            "(the tools call scraper_api, web_search, and account).\n"
+            "Run: pip install -U 'mrscraper-sdk>=0.8.0,<0.9.0'"
         )
     print(f"mrscraper-sdk {installed}")
-
-
-def find_job_id(data: Any) -> Optional[str]:
-    """Look for a brand job ID; the response field name is not fixed by the SDK."""
-    if isinstance(data, dict):
-        for key in ("job_id", "jobId", "id"):
-            value = data.get(key)
-            if isinstance(value, (str, int)) and str(value).strip():
-                return str(value)
-        for value in data.values():
-            found = find_job_id(value)
-            if found:
-                return found
-    elif isinstance(data, list):
-        for item in data:
-            found = find_job_id(item)
-            if found:
-                return found
-    return None
 
 
 def preview(data: Any, limit: int = 300) -> str:
     if isinstance(data, dict) and data.get("encoding") == "base64":
         return f"<binary {data.get('size_bytes')} bytes, base64>"
+    if isinstance(data, dict) and isinstance(data.get("screenshot"), str):
+        size = len(data["screenshot"])
+        data = {**data, "screenshot": f"<base64 screenshot, {size} chars>"}
     text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
     text = " ".join(text.split())
     return text if len(text) <= limit else text[:limit] + " ..."
@@ -168,6 +122,11 @@ def save(out_dir: Path, name: str, raw: str, result: dict[str, Any]) -> list[Pat
         binary_path = out_dir / f"manual_{name}_{stamp}{ext}"
         binary_path.write_bytes(base64.b64decode(data["base64"]))
         paths.append(binary_path)
+    elif isinstance(data, dict) and isinstance(data.get("screenshot"), str):
+        encoded = data["screenshot"].split(",", 1)[-1]  # tolerate a data: URL prefix
+        image_path = out_dir / f"manual_{name}_{stamp}.png"
+        image_path.write_bytes(base64.b64decode(encoded))
+        paths.append(image_path)
     return paths
 
 
@@ -181,15 +140,13 @@ async def call_tool(tool: Any, payload: dict[str, Any], use_async: bool) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--token", help="MrScraper API token (overrides env/.env).")
-    parser.add_argument("--only", nargs="+", metavar="TOOL", help="Run only these tools.")
-    parser.add_argument("--skip", nargs="+", metavar="TOOL", default=[], help="Skip these tools.")
-    parser.add_argument("--async", dest="use_async", action="store_true", help="Use ainvoke.")
-    parser.add_argument("--brand-job-id", help="Existing brand job ID for get_brand.")
     parser.add_argument(
-        "--brand-output",
-        choices=["html", "bundle", "screenshot", "screenshot_full"],
-        help="Download this get_brand output instead of reading job metadata.",
+        "--only", nargs="+", metavar="CASE", help="Run only these tools or case labels."
     )
+    parser.add_argument(
+        "--skip", nargs="+", metavar="CASE", default=[], help="Skip these tools or case labels."
+    )
+    parser.add_argument("--async", dest="use_async", action="store_true", help="Use ainvoke.")
     parser.add_argument(
         "--out", type=Path, default=ROOT / "debug_results", help="Output directory."
     )
@@ -198,52 +155,39 @@ async def main() -> int:
     check_sdk_version()
     tools = {t.name: t for t in MrScraperToolkit(token=load_token(args.token)).get_tools()}
 
-    known = {name for name, _ in CASES}
+    known = {label for label, _, _ in CASES} | {name for _, name, _ in CASES}
     unknown = (set(args.only or []) | set(args.skip)) - known
     if unknown:
-        sys.exit(f"Unknown tool name(s): {', '.join(sorted(unknown))}\nKnown: {', '.join(sorted(known))}")
+        sys.exit(f"Unknown tool or case name(s): {', '.join(sorted(unknown))}\nKnown: {', '.join(sorted(known))}")
 
     args.out.mkdir(parents=True, exist_ok=True)
-    brand_job_id = args.brand_job_id
     summary: list[tuple[str, str, str, float]] = []
 
-    for name, payload in CASES:
-        if (args.only and name not in args.only) or name in args.skip:
+    for label, name, payload in CASES:
+        selected = {label, name}
+        if (args.only and not selected & set(args.only)) or selected & set(args.skip):
             continue
-        payload = dict(payload)
-        if name == "mrscraper_get_brand":
-            if not brand_job_id:
-                print(f"\n=== {name}\nSKIPPED: no job ID (run scrape_brand or pass --brand-job-id)")
-                summary.append((name, "SKIP", "no job id", 0.0))
-                continue
-            payload["job_id"] = brand_job_id
-            if args.brand_output:
-                payload["output"] = args.brand_output
 
-        print(f"\n=== {name}\ninput: {json.dumps(payload)}")
+        print(f"\n=== {label} ({name})\ninput: {json.dumps(payload)}")
         started = time.perf_counter()
         try:
-            raw = await call_tool(tools[name], payload, args.use_async)
+            raw = await call_tool(tools[name], dict(payload), args.use_async)
             elapsed = time.perf_counter() - started
             result = json.loads(raw)
-        except Exception as exc:  # report and keep going so one failure doesn't hide the rest
+        except Exception as exc:  # noqa: BLE001 - report and keep going so one failure doesn't hide the rest
             elapsed = time.perf_counter() - started
             print(f"ERROR after {elapsed:.1f}s: {type(exc).__name__}: {exc}")
-            summary.append((name, "FAIL", f"{type(exc).__name__}: {exc}"[:80], elapsed))
+            summary.append((label, "FAIL", f"{type(exc).__name__}: {exc}"[:80], elapsed))
             continue
 
         status = result.get("status_code")
         ok = isinstance(status, int) and 200 <= status < 300
         print(f"status_code: {status}  ({elapsed:.1f}s)")
         print(f"data: {preview(result.get('data'))}")
-        for path in save(args.out, name, raw, result):
+        for path in save(args.out, label, raw, result):
             print(f"saved: {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}")
 
-        if name == "mrscraper_scrape_brand" and not brand_job_id:
-            brand_job_id = find_job_id(result.get("data"))
-            print(f"brand job id: {brand_job_id or 'NOT FOUND - check saved JSON'}")
-
-        summary.append((name, "PASS" if ok else "FAIL", f"HTTP {status}", elapsed))
+        summary.append((label, "PASS" if ok else "FAIL", f"HTTP {status}", elapsed))
 
     print("\n" + "=" * 72)
     for name, outcome, detail, elapsed in summary:

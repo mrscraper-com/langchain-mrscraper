@@ -1,6 +1,6 @@
 # langchain-mrscraper
 
-LangChain tools for the [MrScraper Python SDK](https://pypi.org/project/mrscraper-sdk/). The toolkit exposes the same ten public services as `mrscraper-sdk>=0.7.0`.
+LangChain tools for the [MrScraper Python SDK](https://pypi.org/project/mrscraper-sdk/). The toolkit exposes the three public services of `mrscraper-sdk>=0.8.0,<0.9.0`: the Scraper API, Web Search, and account usage.
 
 ## Installation
 
@@ -14,14 +14,15 @@ The Python SDK and LangChain Core are installed automatically.
 
 ```python
 import os
-from langchain_mrscraper import MrScraperJSON, MrScraperToolkit
+from langchain_mrscraper import MrScraperScraperAPI, MrScraperToolkit
 
 os.environ["MRSCRAPER_API_KEY"] = "your-token"
 
-tools = MrScraperToolkit().get_tools()
-result = MrScraperJSON().invoke({
-    "url": "http://cireba.com/cayman-islands-real-estate-listings/",
-    "prompt": "Extract property names, prices, locations, and listing URLs.",
+tools = MrScraperToolkit().get_tools()  # all three tools for an agent
+
+result = MrScraperScraperAPI().invoke({
+    "url": "https://books.toscrape.com/",
+    "markdown": True,
 })
 print(result)
 ```
@@ -30,20 +31,67 @@ Every tool supports `.invoke(...)` and `await .ainvoke(...)`. Authentication can
 
 ## Available tools
 
-| Class | Tool name | SDK method / defaults |
-| --- | --- | --- |
-| `MrScraperHTML` | `mrscraper_scraper_html` | `scraper_html`; HTML output |
-| `MrScraperMarkdown` | `mrscraper_scraper_markdown` | `scraper_markdown`; Markdown output |
-| `MrScraperScreenshot` | `mrscraper_get_screenshot` | `get_screenshot`; `full_page=True`, `timeout=300`, `wait_until="domcontentloaded"` |
-| `MrScraperJSON` | `mrscraper_scraper_json` | `scraper_json`; general agent, default extraction prompt |
-| `MrScraperMultiplePage` | `mrscraper_scraper_multiple_page` | `scraper_multiple_page`; listing agent, `max_pages=3` |
-| `MrScraperSitemap` | `mrscraper_scraper_sitemap` | `scraper_sitemap`; map agent, `max_depth=2`, `max_pages=3`, `limit=1000` |
-| `MrScraperBrand` | `mrscraper_scrape_brand` | `scrape_brand`; `bundle="clean"` (`clean`, `full`, or `none`) |
-| `MrScraperGetBrand` | `mrscraper_get_brand` | `get_brand`; required `job_id`, optional `output` |
-| `MrScraperWebSearch` | `mrscraper_web_search` | `web_search`; real-time web search results |
-| `MrScraperAccount` | `mrscraper_account` | `account`; account, quota, and rate limits |
+| Class | Tool name | SDK method | Input fields |
+| --- | --- | --- | --- |
+| `MrScraperScraperAPI` | `mrscraper_scraper_api` | `scraper_api` | `url`, `html`, `markdown`, `screenshot`, plus page controls (below) |
+| `MrScraperWebSearch` | `mrscraper_web_search` | `web_search` | `query`, `country`, `num_results` (10–100), `timeout` |
+| `MrScraperAccount` | `mrscraper_account` | `account` | `timeout` |
 
-HTML, Markdown, and screenshot flags are selected inside the SDK and are absent from tool parameters. The shared low-level request method is internal. JSON extraction always uses the general agent; multiple-page extraction uses listing; sitemap discovery uses map.
+Tool results are JSON strings containing the SDK's `status_code`, `data`, and `headers`.
+
+## Scraper API
+
+Fetch a public web page as rendered HTML, Markdown, screenshot, or a combination.
+
+```python
+import base64
+import json
+from langchain_mrscraper import MrScraperScraperAPI
+
+tool = MrScraperScraperAPI()
+
+html = json.loads(tool.invoke({"url": "https://books.toscrape.com/"}))
+print(html["data"][:200])  # HTML only (the default) returns the HTML string
+
+combined = json.loads(tool.invoke({
+    "url": "https://books.toscrape.com/",
+    "html": True,
+    "markdown": True,
+    "screenshot": True,
+}))
+print(combined["data"]["markdown"][:200])
+png = base64.b64decode(combined["data"]["screenshot"])
+```
+
+`html` defaults to `True`; `markdown` and `screenshot` default to `False`. At least one must be true. Requesting Markdown or a screenshot returns an object in `data` with an entry for each requested output; the screenshot is a base64 string. `screenshot=True` enables browser rendering, so combining it with `browser_rendering=False` is rejected.
+
+Page controls: `timeout` (1–300 seconds, default 120), `geo_code` (default `"US"`), `proxy_country`, `block_resources`, `browser_rendering`, `super`, `use_proxy`, `proxy`, `wait_for_selector`, `wait_until`, `home_page`, `bypass_proxy`, `cookie_jar`, `headers`, `max_retries`, `token_cap`, `stream`, and `discard_token_secret`. Invalid URLs, limits, or unsupported fields are rejected by the tool schema before a request is made.
+
+## Web Search
+
+Searches the web to retrieve real-time results, including relevant website URLs, titles, descriptions, and related questions based on a given query.
+
+```python
+from langchain_mrscraper import MrScraperWebSearch
+
+result = MrScraperWebSearch().invoke({
+    "query": "e-menessaptieka.lv linkedin",
+    "country": "us",
+    "num_results": 10,
+})
+```
+
+`query` is required. `country` is optional (the service default applies when omitted). `num_results` is an integer from 10 to 100 (default 10). `timeout` defaults to 600 seconds. The response `data` is `{"success", "message", "data": [...]}`, where each result has `rank`, `title`, `url`, `description`, and `source`.
+
+## Account
+
+```python
+from langchain_mrscraper import MrScraperAccount
+
+print(MrScraperAccount().invoke({}))
+```
+
+Returns subscription status, token usage and limits, remaining quota, and rate limits. `timeout` defaults to 30 seconds.
 
 ## Select tools for an agent
 
@@ -52,82 +100,31 @@ from langchain_mrscraper import MrScraperToolkit
 
 tools = MrScraperToolkit(
     token="your-token",
-    tool_names=["mrscraper_scraper_json", "mrscraper_scraper_sitemap"],
+    tool_names=["mrscraper_scraper_api", "mrscraper_web_search"],
 ).get_tools()
 ```
 
 `load_mrscraper_tools(...)` accepts the same configuration. `tool_names` filters by the exact names above; an empty list returns no tools.
 
-## Sitemap patterns and listing extraction
+## Migration from 0.3.x
 
-```python
-from langchain_mrscraper import MrScraperMultiplePage, MrScraperSitemap
+Version 0.4.0 requires `mrscraper-sdk>=0.8.0,<0.9.0`, which exposes exactly three public methods. The toolkit now returns three tools instead of ten.
 
-listing = MrScraperMultiplePage().invoke({
-    "url": "http://cireba.com/cayman-islands-real-estate-listings/",
-    "prompt": "Extract all property listings with prices and URLs.",
-    "max_pages": 3,
-})
+| 0.3.x tool | 0.4.0 replacement |
+| --- | --- |
+| `MrScraperHTML` (`mrscraper_scraper_html`) | `MrScraperScraperAPI` with `{"url": ...}` |
+| `MrScraperMarkdown` (`mrscraper_scraper_markdown`) | `MrScraperScraperAPI` with `{"url": ..., "html": False, "markdown": True}` |
+| `MrScraperScreenshot` (`mrscraper_get_screenshot`) | `MrScraperScraperAPI` with `{"url": ..., "html": False, "screenshot": True}` |
+| `MrScraperJSON`, `MrScraperMultiplePage`, `MrScraperSitemap`, `MrScraperBrand`, `MrScraperGetBrand` | Removed (no public SDK method). Fetch pages with `MrScraperScraperAPI` and let your model extract data, or pin `langchain-mrscraper<0.4`. |
+| `MrScraperWebSearch` (`url`, `raw`, `format`, `region`, `language`, `page`, `render_js`) | `MrScraperWebSearch` (`query`, `country`, `num_results`, `timeout`) |
+| `MrScraperAccount` | Unchanged |
+| `MrScraperFetchHTML` import alias | Removed; use `MrScraperScraperAPI` |
 
-sitemap = MrScraperSitemap().invoke({
-    "url": "https://docs.mrscraper.com",
-    "max_depth": 2,
-    "max_pages": 3,
-    "limit": 1000,
-    "include_patterns": r"/products/.*",
-    "exclude_patterns": r"/blog/.*",
-})
-```
+Other notes:
 
-Use `include_patterns` and `exclude_patterns` to filter discovered URLs. Pattern strings are preserved unchanged; omit them to leave results unfiltered.
-
-## Brand jobs and binary output
-
-```python
-import base64
-import json
-from pathlib import Path
-from langchain_mrscraper import MrScraperBrand, MrScraperGetBrand
-
-job = MrScraperBrand().invoke({"url": "https://www.brooksrunning.com", "bundle": "clean"})
-print(job)  # Read the job ID from the API response.
-
-result = json.loads(MrScraperGetBrand().invoke({"job_id": "YOUR_JOB_ID", "output": "bundle"}))
-Path("brand.zip").write_bytes(base64.b64decode(result["data"]["base64"]))
-```
-
-Omit `output` to retrieve job metadata, or use `html`, `bundle`, `screenshot`, or `screenshot_full` to download a file. Tool results are JSON strings containing the SDK's `status_code`, `data`, and `headers`. Binary image/ZIP `data` is represented losslessly as `{"encoding": "base64", "base64": "...", "size_bytes": 123}`. HTML remains text and JSON remains structured data. The content type is retained in `headers`.
-
-## Web Search
-
-Search the web to retrieve real-time search results, including relevant website URLs, titles, descriptions, and related questions based on a given query.
-
-```python
-from langchain_mrscraper import MrScraperWebSearch
-
-result = MrScraperWebSearch().invoke({
-    "url": "Cayman Islands real estate",
-    "raw": False,
-    "format": "json",
-    "region": "us",
-    "language": "en",
-    "page": 1,
-})
-```
-
-The SDK compatibility default is `raw=True`, which selects HTML and overrides `format`; set `raw=False` for JSON. Search also accepts `render_js` and a positive `timeout` (default 600 seconds).
-
-## Shared scraping controls
-
-HTML, Markdown, JSON, listing, sitemap, and brand tools accept `timeout` (120 seconds by default), `geo_code`, `proxy_country`, `block_resources`, `browser_rendering`, `super`, `use_proxy`, `proxy`, `wait_for_selector`, `wait_until`, `home_page`, `bypass_proxy`, `cookie_jar`, `headers`, `max_retries`, `token_cap`, `stream`, and `discard_token_secret`.
-
-Screenshot accepts the same controls except `browser_rendering`, which the SDK always enables, and adds `full_page`. `get_brand` accepts `job_id`, `output`, and `timeout`; `account` accepts `timeout` (30 seconds by default). Invalid URLs, limits, bundle/output values, or unsupported fields are rejected by the tool schema before making a request.
-
-## Migration from the earlier integration
-
-Use `MrScraperHTML` for HTML retrieval and `MrScraperWebSearch` for Web Search. Update toolkit filters to the current tool names listed above. The old search `session_cookie` argument is removed.
-
-The earlier `MrScraperCreateScraper`, AI/manual rerun, bulk rerun, and result-list/retrieve tools are removed because those methods are absent from the current SDK. For extraction, use `MrScraperJSON` or `MrScraperMultiplePage` and rename `message` to `prompt`. For map discovery, use `MrScraperSitemap` and its crawl/pattern controls. For brand follow-up, use `MrScraperGetBrand` with the brand job ID. These services return their API results directly.
+- Screenshots now come back as a base64 string inside `data` (`data["screenshot"]`) together with any other requested outputs. The 0.3.x screenshot `full_page` option and its `timeout=300` / `wait_until="domcontentloaded"` defaults no longer exist; pass `timeout` and `wait_until` explicitly when needed.
+- Update toolkit `tool_names` filters to `mrscraper_scraper_api`, `mrscraper_web_search`, and `mrscraper_account`.
+- Earlier tools (create/rerun/bulk-rerun scrapers and result listing) remain removed.
 
 ## Testing
 
@@ -142,6 +139,8 @@ Live smoke tests are opt-in and consume API quota:
 ```bash
 MRSCRAPER_RUN_LIVE=1 MRSCRAPER_API_KEY=your-token pytest tests/integration_tests -m integration -v
 ```
+
+`python manual_check_tools.py` runs every tool against the real API and saves responses to `debug_results/`.
 
 ## Local release workflow
 

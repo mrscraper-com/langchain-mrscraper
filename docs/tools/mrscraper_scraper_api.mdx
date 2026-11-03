@@ -1,0 +1,53 @@
+---
+title: "MrScraperScraperAPI integration"
+description: "Fetch a public web page as rendered HTML, Markdown, screenshot, or a combination using MrScraper in LangChain."
+---
+
+`MrScraperScraperAPI` wraps the Python SDK's `scraper_api` service and is registered as `mrscraper_scraper_api`.
+
+## Setup and invocation
+
+```bash
+pip install -U langchain-mrscraper
+```
+
+```python
+from langchain_mrscraper import MrScraperScraperAPI
+
+tool = MrScraperScraperAPI(token="your-api-token")
+
+# HTML only (default)
+html = tool.invoke({"url": "https://books.toscrape.com/"})
+
+# HTML, Markdown, and a screenshot from one request
+combined = tool.invoke({
+    "url": "https://books.toscrape.com/",
+    "html": True,
+    "markdown": True,
+    "screenshot": True,
+})
+```
+
+Use `await tool.ainvoke(...)` for async invocation. Authentication also supports `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN`; an existing SDK client can be supplied with `client=...`.
+
+## Parameters and behavior
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `url` | required | HTTP or HTTPS URL to fetch. |
+| `html`, `markdown`, `screenshot` | `True`, `False`, `False` | Outputs to return; at least one must be true. `screenshot=True` enables browser rendering, so `browser_rendering=False` is rejected with it. |
+| `timeout` | `120` | Page timeout from 1 to 300 seconds. |
+| `geo_code` / `proxy_country` | `"US"` / none | Geolocation and proxy country. |
+| `browser_rendering` | none | `True` forces JavaScript rendering, `False` disables it, omit to let the service decide. |
+| `wait_for_selector` / `wait_until` | none | CSS selector or page lifecycle event (e.g. `domcontentloaded`) to wait for. |
+| `block_resources` | `False` | Block images, CSS, and fonts. |
+| `headers` / `cookie_jar` | none | Target request headers (object or JSON string) and cookie configuration. |
+| `super`, `use_proxy`, `proxy`, `bypass_proxy`, `home_page` | `False`, `True`, none, `False`, `False` | Routing and proxy controls. |
+| `max_retries` / `token_cap` | `3` / none | Retry controls. |
+| `stream`, `discard_token_secret` | none, `""` | Advanced API options. |
+
+Unknown fields and invalid values are rejected by the tool schema before a request is made.
+
+## Result format
+
+Tool output is a JSON string with `status_code`, `data`, and `headers`. With only `html=True`, `data` is the HTML string. When Markdown or a screenshot is requested, `data` is an object with an entry for each requested output (`html`, `markdown`, `screenshot`); the screenshot is a base64-encoded image string. If the API ever returns raw binary content, it is wrapped as `{"encoding": "base64", "base64": "...", "size_bytes": 123}`.

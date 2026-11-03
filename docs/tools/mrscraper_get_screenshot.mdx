@@ -1,34 +1,8 @@
 ---
-title: "MrScraperScreenshot integration"
-description: "Capture a page screenshot using MrScraper in LangChain."
+title: "MrScraperScreenshot migration"
+description: "Use MrScraperScraperAPI instead of MrScraperScreenshot."
 ---
 
-`MrScraperScreenshot` wraps the Python SDK's `get_screenshot` service and is registered as `mrscraper_get_screenshot`.
+`MrScraperScreenshot` (`mrscraper_get_screenshot`) was removed in langchain-mrscraper 0.4.0 because `mrscraper-sdk` 0.8.0 no longer exposes a format-specific method. Use [`MrScraperScraperAPI`](/oss/python/integrations/tools/mrscraper_scraper_api) (tool name `mrscraper_scraper_api`) with `{"url": ..., "html": False, "screenshot": True}`. Combine `html`, `markdown`, and `screenshot` to get several outputs from one request. Screenshot output enables browser rendering automatically. The 0.3.x `full_page` option and the 300-second/`domcontentloaded` defaults no longer apply; pass `timeout` and `wait_until` explicitly if you need them.
 
-## Setup and invocation
-
-```bash
-pip install -U langchain-mrscraper
-```
-
-```python
-from langchain_mrscraper import MrScraperScreenshot
-
-tool = MrScraperScreenshot(token="your-api-token")
-result = tool.invoke({"url": "https://example.com", "full_page": True})
-print(result)
-```
-
-Use `await tool.ainvoke(...)` for async invocation. Authentication also supports `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN`; an existing SDK client can be supplied with `client=...`.
-
-## Parameters and behavior
-
-Defaults are `full_page=True`, `timeout=300`, and `wait_until="domcontentloaded"`. Browser rendering is always enabled. Binary data uses the base64 envelope described below.
-
-## Shared scraping controls
-
-Page tools accept `timeout`, `geo_code`, `proxy_country`, `block_resources`, `super`, `use_proxy`, `proxy`, `wait_for_selector`, `wait_until`, `home_page`, `bypass_proxy`, `cookie_jar`, `headers`, `max_retries`, `token_cap`, `stream`, and `discard_token_secret`. All except screenshot also accept `browser_rendering`. Format flags and agents are selected by the SDK.
-
-## Result format
-
-Tool output is a JSON string with `status_code`, `data`, and `headers`. Text and JSON are preserved. Binary images and ZIP files use `{"encoding": "base64", "base64": "...", "size_bytes": 123}` in `data`; decode with `base64.b64decode(result["data"]["base64"])` after `json.loads(...)`. The response content type is retained in `headers`.
+See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the three current tools.

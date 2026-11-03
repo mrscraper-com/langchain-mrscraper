@@ -3,8 +3,8 @@ title: "mrscraper_rerun_ai_scraper migration"
 description: "Migrate from the earlier MrScraper integration."
 ---
 
-This legacy tool has been removed because its SDK method is absent from `mrscraper-sdk>=0.7.0`. It is not exported or included in the current toolkit.
+This legacy tool has been removed because its SDK method is absent from `mrscraper-sdk`. It is not exported or included in the current toolkit.
 
-Use `MrScraperJSON` or `MrScraperMultiplePage` with the URL and extraction prompt for a new extraction request.
+Call [`MrScraperScraperAPI`](/oss/python/integrations/tools/mrscraper_scraper_api) for each URL and let your model extract the fields you need.
 
-See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the ten current services.
+See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the three current tools.

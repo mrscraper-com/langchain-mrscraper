@@ -3,7 +3,7 @@ title: "MrScraper integrations"
 description: "Use the MrScraper Python SDK services as LangChain tools."
 ---
 
-The integration exposes all ten public services from `mrscraper-sdk>=0.7.0`: HTML, Markdown, screenshots, JSON extraction, listing extraction, sitemap discovery, brand jobs, Web Search, and account usage.
+The integration exposes the three public services from `mrscraper-sdk>=0.8.0,<0.9.0`: the Scraper API (HTML, Markdown, screenshot, or a combination), Web Search, and account usage.
 
 ## Installation and setup
 
@@ -19,23 +19,21 @@ os.environ["MRSCRAPER_API_KEY"] = "your-api-token"
 tools = MrScraperToolkit().get_tools()
 ```
 
-`token`, `mrscraper_api_key`, `MRSCRAPER_API_KEY`, and `MRSCRAPER_API_TOKEN` are supported. Inject an SDK client with `client=...`, or select exact tool names with `tool_names=["mrscraper_scraper_json", "mrscraper_scraper_sitemap"]`. Every tool supports both `.invoke(...)` and `await .ainvoke(...)`.
+`token`, `mrscraper_api_key`, `MRSCRAPER_API_KEY`, and `MRSCRAPER_API_TOKEN` are supported. Inject an SDK client with `client=...`, or select exact tool names with `tool_names=["mrscraper_scraper_api", "mrscraper_web_search"]`. Every tool supports both `.invoke(...)` and `await .ainvoke(...)`.
 
 ## Current tool integrations
 
-- [MrScraperHTML](/oss/python/integrations/tools/mrscraper_scraper_html) — Retrieve page HTML.
-- [MrScraperMarkdown](/oss/python/integrations/tools/mrscraper_scraper_markdown) — Retrieve page Markdown.
-- [MrScraperScreenshot](/oss/python/integrations/tools/mrscraper_get_screenshot) — Capture a page screenshot.
-- [MrScraperJSON](/oss/python/integrations/tools/mrscraper_scraper_json) — Extract structured page data.
-- [MrScraperMultiplePage](/oss/python/integrations/tools/mrscraper_scraper_multiple_page) — Extract entries across listing pages.
-- [MrScraperSitemap](/oss/python/integrations/tools/mrscraper_scraper_sitemap) — Discover URLs from a site.
-- [MrScraperBrand](/oss/python/integrations/tools/mrscraper_scrape_brand) — Start a brand scraping job.
-- [MrScraperGetBrand](/oss/python/integrations/tools/mrscraper_get_brand) — Read or download a brand job.
-- [MrScraperWebSearch](/oss/python/integrations/tools/mrscraper_web_search) — Search the web to retrieve real-time search results, including relevant website URLs, titles, descriptions, and related questions based on a given query.
+- [MrScraperScraperAPI](/oss/python/integrations/tools/mrscraper_scraper_api) — Fetch a public web page as rendered HTML, Markdown, screenshot, or a combination.
+- [MrScraperWebSearch](/oss/python/integrations/tools/mrscraper_web_search) — Searches the web to retrieve real-time results, including relevant website URLs, titles, descriptions, and related questions based on a given query.
 - [MrScraperAccount](/oss/python/integrations/tools/mrscraper_account) — Read account usage and quota.
 
-## Migration
+## Migration from 0.3.x
 
-Use `MrScraperHTML` for HTML retrieval and `MrScraperWebSearch` for Web Search, with the tool names listed above. The old create/rerun/bulk/result-management operations are removed. Use `MrScraperJSON` / `MrScraperMultiplePage` with `prompt` for extraction and `MrScraperSitemap` for discovery.
+Version 0.4.0 follows `mrscraper-sdk` 0.8.0, which exposes exactly three public methods.
 
-The shared low-level scraper API remains internal. Format-specific tools do not expose HTML, Markdown, or screenshot flags. Binary tool results use a lossless base64 envelope; see the screenshot or brand-download documentation.
+- `MrScraperHTML`, `MrScraperMarkdown`, and `MrScraperScreenshot` are replaced by `MrScraperScraperAPI` (`mrscraper_scraper_api`). Select outputs with the `html`, `markdown`, and `screenshot` flags.
+- `MrScraperJSON`, `MrScraperMultiplePage`, `MrScraperSitemap`, `MrScraperBrand`, and `MrScraperGetBrand` are removed because the SDK no longer exposes those services. Fetch pages with `MrScraperScraperAPI` and let your model extract the data, or pin `langchain-mrscraper<0.4`.
+- `MrScraperWebSearch` now takes `query`, `country`, and `num_results` (10–100) instead of `url`, `raw`, `format`, `region`, `language`, `page`, and `render_js`.
+- The `MrScraperFetchHTML` import alias is removed; use `MrScraperScraperAPI`.
+
+Tool results are JSON strings with `status_code`, `data`, and `headers`.

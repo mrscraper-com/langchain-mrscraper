@@ -1,6 +1,6 @@
 ---
 title: "MrScraperWebSearch integration"
-description: "Search the web to retrieve real-time search results, including relevant website URLs, titles, descriptions, and related questions based on a given query."
+description: "Searches the web to retrieve real-time results, including relevant website URLs, titles, descriptions, and related questions based on a given query."
 ---
 
 `MrScraperWebSearch` wraps the Python SDK's `web_search` service and is registered as `mrscraper_web_search`.
@@ -15,7 +15,11 @@ pip install -U langchain-mrscraper
 from langchain_mrscraper import MrScraperWebSearch
 
 tool = MrScraperWebSearch(token="your-api-token")
-result = tool.invoke({"url": "Cayman Islands real estate", "raw": False, "format": "json", "region": "us", "language": "en", "page": 1})
+result = tool.invoke({
+    "query": "e-menessaptieka.lv linkedin",
+    "country": "us",
+    "num_results": 10,
+})
 print(result)
 ```
 
@@ -23,8 +27,17 @@ Use `await tool.ainvoke(...)` for async invocation. Authentication also supports
 
 ## Parameters and behavior
 
-The required `url` parameter contains the search query. For compatibility `raw=True` is the default and selects HTML regardless of `format`; set `raw=False` for JSON. Optional controls are `region`, `language`, `page` (one-based), `render_js` (default false), and `timeout` (default 600 seconds).
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `query` | required | The search query. |
+| `country` | none | Country code for localized results, e.g. `us`. Omit to use the service default. |
+| `num_results` | `10` | Number of results, an integer from 10 to 100. |
+| `timeout` | `600` | HTTP timeout in seconds. |
 
 ## Result format
 
-Tool output is a JSON string with `status_code`, `data`, and `headers`. Text and JSON are preserved. Binary images and ZIP files use `{"encoding": "base64", "base64": "...", "size_bytes": 123}` in `data`; decode with `base64.b64decode(result["data"]["base64"])` after `json.loads(...)`. The response content type is retained in `headers`.
+Tool output is a JSON string with `status_code`, `data`, and `headers`. `data` holds the API response: `{"success": ..., "message": ..., "data": [...]}`, where each result has `rank`, `title`, `url`, `description`, and `source`.
+
+## Migrating from 0.3.x
+
+The search query moved from `url` to `query`, `region` became `country`, and `num_results` was added. The `raw`, `format`, `language`, `page`, and `render_js` options were removed; results are always structured JSON.

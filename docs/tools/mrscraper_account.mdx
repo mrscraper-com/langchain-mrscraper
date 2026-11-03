@@ -27,4 +27,4 @@ Returns account identity, subscription status, token usage/limits, quota remaini
 
 ## Result format
 
-Tool output is a JSON string with `status_code`, `data`, and `headers`. Text and JSON are preserved. Binary images and ZIP files use `{"encoding": "base64", "base64": "...", "size_bytes": 123}` in `data`; decode with `base64.b64decode(result["data"]["base64"])` after `json.loads(...)`. The response content type is retained in `headers`.
+Tool output is a JSON string with `status_code`, `data`, and `headers`. `data` contains `subscription_status`, `enterprise`, `token_usage`, `token_limit`, `token_remaining`, `usage_percent`, `rate_limit`, `rate_ttl`, `auto_renew`, `ends_at`, and `user` (`name`, `email`, `verified`). API tokens and billing identifiers are not included.
