@@ -230,8 +230,7 @@ class MrScraperWebSearch(MrScraperBaseTool):
 
     name: str = "mrscraper_web_search"
     description: str = (
-        "Searches the web to retrieve real-time results, including relevant website "
-        "URLs, titles, descriptions, and related questions based on a given query. "
+        "Search the web for real-time results: website URLs, titles, and descriptions. "
         "Returns ranked results with rank, title, url, description, and source."
     )
     args_schema: type[BaseModel] = WebSearchInput

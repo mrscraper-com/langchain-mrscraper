@@ -65,9 +65,7 @@ BINARY_EXT = {
 
 def load_token(cli_token: Optional[str]) -> str:
     token = (
-        cli_token
-        or os.getenv("MRSCRAPER_API_KEY")
-        or os.getenv("MRSCRAPER_API_TOKEN")
+        cli_token or os.getenv("MRSCRAPER_API_KEY") or os.getenv("MRSCRAPER_API_TOKEN")
     )
     env_file = ROOT / ".env"
     if not token and env_file.exists():
@@ -92,9 +90,9 @@ def check_sdk_version() -> None:
     parts = tuple(int(p) for p in installed.split(".")[:3] if p.isdigit())
     if not MIN_SDK <= parts < MAX_SDK:
         sys.exit(
-            f"mrscraper-sdk {installed} is installed but >=0.8.0,<0.9.0 is required "
+            f"mrscraper-sdk {installed} is installed but >=0.9.0,<0.10.0 is required "
             "(the tools call scraper_api, web_search, and account).\n"
-            "Run: pip install -U 'mrscraper-sdk>=0.8.0,<0.9.0'"
+            "Run: pip install -U 'mrscraper-sdk>=0.9.0,<0.10.0'"
         )
     print(f"mrscraper-sdk {installed}")
 
@@ -144,21 +142,31 @@ async def main() -> int:
         "--only", nargs="+", metavar="CASE", help="Run only these tools or case labels."
     )
     parser.add_argument(
-        "--skip", nargs="+", metavar="CASE", default=[], help="Skip these tools or case labels."
+        "--skip",
+        nargs="+",
+        metavar="CASE",
+        default=[],
+        help="Skip these tools or case labels.",
     )
-    parser.add_argument("--async", dest="use_async", action="store_true", help="Use ainvoke.")
+    parser.add_argument(
+        "--async", dest="use_async", action="store_true", help="Use ainvoke."
+    )
     parser.add_argument(
         "--out", type=Path, default=ROOT / "debug_results", help="Output directory."
     )
     args = parser.parse_args()
 
     check_sdk_version()
-    tools = {t.name: t for t in MrScraperToolkit(token=load_token(args.token)).get_tools()}
+    tools = {
+        t.name: t for t in MrScraperToolkit(token=load_token(args.token)).get_tools()
+    }
 
     known = {label for label, _, _ in CASES} | {name for _, name, _ in CASES}
     unknown = (set(args.only or []) | set(args.skip)) - known
     if unknown:
-        sys.exit(f"Unknown tool or case name(s): {', '.join(sorted(unknown))}\nKnown: {', '.join(sorted(known))}")
+        sys.exit(
+            f"Unknown tool or case name(s): {', '.join(sorted(unknown))}\nKnown: {', '.join(sorted(known))}"
+        )
 
     args.out.mkdir(parents=True, exist_ok=True)
     summary: list[tuple[str, str, str, float]] = []
@@ -177,7 +185,9 @@ async def main() -> int:
         except Exception as exc:  # noqa: BLE001 - report and keep going so one failure doesn't hide the rest
             elapsed = time.perf_counter() - started
             print(f"ERROR after {elapsed:.1f}s: {type(exc).__name__}: {exc}")
-            summary.append((label, "FAIL", f"{type(exc).__name__}: {exc}"[:80], elapsed))
+            summary.append(
+                (label, "FAIL", f"{type(exc).__name__}: {exc}"[:80], elapsed)
+            )
             continue
 
         status = result.get("status_code")
@@ -185,14 +195,19 @@ async def main() -> int:
         print(f"status_code: {status}  ({elapsed:.1f}s)")
         print(f"data: {preview(result.get('data'))}")
         for path in save(args.out, label, raw, result):
-            print(f"saved: {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}")
+            print(
+                f"saved: {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}"
+            )
 
         summary.append((label, "PASS" if ok else "FAIL", f"HTTP {status}", elapsed))
 
     print("\n" + "=" * 72)
     for name, outcome, detail, elapsed in summary:
         print(f"{outcome:<5} {name:<34} {elapsed:>6.1f}s  {detail}")
-    counts = {o: sum(1 for _, outcome, _, _ in summary if outcome == o) for o in ("PASS", "FAIL", "SKIP")}
+    counts = {
+        o: sum(1 for _, outcome, _, _ in summary if outcome == o)
+        for o in ("PASS", "FAIL", "SKIP")
+    }
     failed = counts["FAIL"]
     print(f"\n{counts['PASS']} passed, {failed} failed, {counts['SKIP']} skipped")
     return 1 if failed else 0

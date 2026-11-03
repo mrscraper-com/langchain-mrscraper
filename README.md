@@ -1,6 +1,6 @@
 # langchain-mrscraper
 
-LangChain tools for the [MrScraper Python SDK](https://pypi.org/project/mrscraper-sdk/). The toolkit exposes the three public services of `mrscraper-sdk>=0.8.0,<0.9.0`: the Scraper API, Web Search, and account usage.
+LangChain tools for the [MrScraper Python SDK](https://pypi.org/project/mrscraper-sdk/). The toolkit exposes the three public services of `mrscraper-sdk>=0.9.0,<0.10.0`: the Scraper API, Web Search, and account usage.
 
 ## Installation
 
@@ -69,7 +69,7 @@ Page controls: `timeout` (1–300 seconds, default 120), `geo_code` (default `"U
 
 ## Web Search
 
-Searches the web to retrieve real-time results, including relevant website URLs, titles, descriptions, and related questions based on a given query.
+Search the web for real-time results: website URLs, titles, and descriptions.
 
 ```python
 from langchain_mrscraper import MrScraperWebSearch
@@ -108,9 +108,9 @@ tools = MrScraperToolkit(
 
 ## Migration from 0.3.x
 
-Version 0.4.0 requires `mrscraper-sdk>=0.8.0,<0.9.0`, which exposes exactly three public methods. The toolkit now returns three tools instead of ten.
+Version 0.5.0 requires `mrscraper-sdk>=0.9.0,<0.10.0`, which exposes exactly three public methods. The toolkit now returns three tools instead of ten.
 
-| 0.3.x tool | 0.4.0 replacement |
+| 0.3.x tool | 0.5.0 replacement |
 | --- | --- |
 | `MrScraperHTML` (`mrscraper_scraper_html`) | `MrScraperScraperAPI` with `{"url": ...}` |
 | `MrScraperMarkdown` (`mrscraper_scraper_markdown`) | `MrScraperScraperAPI` with `{"url": ..., "html": False, "markdown": True}` |

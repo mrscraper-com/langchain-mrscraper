@@ -3,7 +3,7 @@ title: "MrScraper integrations"
 description: "Use the MrScraper Python SDK services as LangChain tools."
 ---
 
-The integration exposes the three public services from `mrscraper-sdk>=0.8.0,<0.9.0`: the Scraper API (HTML, Markdown, screenshot, or a combination), Web Search, and account usage.
+The integration exposes the three public services from `mrscraper-sdk>=0.9.0,<0.10.0`: the Scraper API (HTML, Markdown, screenshot, or a combination), Web Search, and account usage.
 
 ## Installation and setup
 
@@ -24,12 +24,12 @@ tools = MrScraperToolkit().get_tools()
 ## Current tool integrations
 
 - [MrScraperScraperAPI](/oss/python/integrations/tools/mrscraper_scraper_api) — Fetch a public web page as rendered HTML, Markdown, screenshot, or a combination.
-- [MrScraperWebSearch](/oss/python/integrations/tools/mrscraper_web_search) — Searches the web to retrieve real-time results, including relevant website URLs, titles, descriptions, and related questions based on a given query.
+- [MrScraperWebSearch](/oss/python/integrations/tools/mrscraper_web_search) — Search the web for real-time results: website URLs, titles, and descriptions.
 - [MrScraperAccount](/oss/python/integrations/tools/mrscraper_account) — Read account usage and quota.
 
 ## Migration from 0.3.x
 
-Version 0.4.0 follows `mrscraper-sdk` 0.8.0, which exposes exactly three public methods.
+Version 0.5.0 follows `mrscraper-sdk` 0.9.0, which exposes exactly three public methods.
 
 - `MrScraperHTML`, `MrScraperMarkdown`, and `MrScraperScreenshot` are replaced by `MrScraperScraperAPI` (`mrscraper_scraper_api`). Select outputs with the `html`, `markdown`, and `screenshot` flags.
 - `MrScraperJSON`, `MrScraperMultiplePage`, `MrScraperSitemap`, `MrScraperBrand`, and `MrScraperGetBrand` are removed because the SDK no longer exposes those services. Fetch pages with `MrScraperScraperAPI` and let your model extract the data, or pin `langchain-mrscraper<0.4`.

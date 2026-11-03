@@ -1,8 +1,8 @@
 ---
 title: "MrScraperBrand migration"
-description: "MrScraperBrand was removed in langchain-mrscraper 0.4.0."
+description: "MrScraperBrand was removed in langchain-mrscraper 0.5.0."
 ---
 
-`MrScraperBrand` (`mrscraper_scrape_brand`) was removed in langchain-mrscraper 0.4.0 because `mrscraper-sdk` 0.8.0 no longer exposes this service publicly. To extract data, fetch the page with [`MrScraperScraperAPI`](/oss/python/integrations/tools/mrscraper_scraper_api) (HTML or Markdown) and let your model extract the fields. If you depend on this tool, pin `langchain-mrscraper>=0.3,<0.4` together with `mrscraper-sdk>=0.7,<0.8`.
+`MrScraperBrand` (`mrscraper_scrape_brand`) was removed in langchain-mrscraper 0.5.0 because `mrscraper-sdk` 0.9.0 no longer exposes this service publicly. To extract data, fetch the page with [`MrScraperScraperAPI`](/oss/python/integrations/tools/mrscraper_scraper_api) (HTML or Markdown) and let your model extract the fields. If you depend on this tool, pin `langchain-mrscraper>=0.3,<0.4` together with `mrscraper-sdk>=0.7,<0.8`.
 
 See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the three current tools.
