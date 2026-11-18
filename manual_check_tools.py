@@ -5,7 +5,7 @@ This spends API quota. It is not collected by pytest.
 Usage:
     python manual_check_tools.py                       # run all cases
     python manual_check_tools.py --only mrscraper_account mrscraper_web_search
-    python manual_check_tools.py --skip scraper_api_combined
+    python manual_check_tools.py --skip get_screenshot
     python manual_check_tools.py --async               # use ainvoke instead of invoke
 
 --only/--skip accept a tool name (all of its cases) or a case label.
@@ -34,24 +34,28 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from langchain_mrscraper import MrScraperToolkit
 
-MIN_SDK = (0, 8, 0)
-MAX_SDK = (0, 9, 0)
+MIN_SDK = (0, 10, 0)
+MAX_SDK = (0, 11, 0)
 URL = "https://books.toscrape.com/"
 
 # (case label, tool name, input) in run order. Account goes first because it is
 # cheap and confirms the token before quota is spent on scraping.
 CASES: list[tuple[str, str, dict[str, Any]]] = [
     ("account", "mrscraper_account", {}),
-    ("scraper_api_html", "mrscraper_scraper_api", {"url": URL}),
-    (
-        "scraper_api_combined",
-        "mrscraper_scraper_api",
-        {"url": URL, "html": True, "markdown": True, "screenshot": True},
-    ),
+    *[
+        (name, f"mrscraper_{name}", {"url": URL})
+        for name in (
+            "scrape_html",
+            "scrape_markdown",
+            "get_screenshot",
+            "scrape_brand",
+            "scrape_json",
+        )
+    ],
     (
         "web_search",
         "mrscraper_web_search",
-        {"query": "e-menessaptieka.lv linkedin", "country": "us", "num_results": 10},
+        {"query": "python web scraping", "country": "us", "num_results": 10},
     ),
 ]
 
@@ -90,9 +94,9 @@ def check_sdk_version() -> None:
     parts = tuple(int(p) for p in installed.split(".")[:3] if p.isdigit())
     if not MIN_SDK <= parts < MAX_SDK:
         sys.exit(
-            f"mrscraper-sdk {installed} is installed but >=0.9.0,<0.10.0 is required "
-            "(the tools call scraper_api, web_search, and account).\n"
-            "Run: pip install -U 'mrscraper-sdk>=0.9.0,<0.10.0'"
+            f"mrscraper-sdk {installed} is installed but >=0.10.0,<0.11.0 is required "
+            "(seven services are required).\n"
+            "Run: pip install -U 'mrscraper-sdk>=0.10.0,<0.11.0'"
         )
     print(f"mrscraper-sdk {installed}")
 

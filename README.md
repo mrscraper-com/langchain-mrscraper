@@ -1,153 +1,124 @@
-# langchain-mrscraper
+# MrScraper LangChain Tools
 
-LangChain tools for the [MrScraper Python SDK](https://pypi.org/project/mrscraper-sdk/). The toolkit exposes the three public services of `mrscraper-sdk>=0.9.0,<0.10.0`: the Scraper API, Web Search, and account usage.
+![](./mrscraper.jpeg)
 
-## Installation
+Seven services matching the [MrScraper CLI](https://github.com/mrscraper-com/cli).
+
+| Service | Tool | Purpose |
+| --- | --- | --- |
+| `account` | `mrscraper_account` | Account, subscription, quota, and rate limits |
+| `scrape-html` | `mrscraper_scrape_html` | Raw page HTML |
+| `scrape-markdown` | `mrscraper_scrape_markdown` | Clean Markdown; optional HTML |
+| `get-screenshot` | `mrscraper_get_screenshot` | Full-page or top-viewport base64 screenshot |
+| `scrape-brand` | `mrscraper_scrape_brand` | Brand data as JSON |
+| `scrape-json` | `mrscraper_scrape_json` | Structured extraction using a prompt |
+| `web-search` | `mrscraper_web_search` | Ranked web search results |
+
+## Install and use
+
+Requires Python 3.9+, LangChain Core, and `mrscraper-sdk>=0.10.0,<0.11.0`. Publish/install the new Python SDK before installing this release. Obtain a token from [the app](https://app.mrscraper.com).
 
 ```bash
-pip install -U langchain-mrscraper
+python -m pip install -U langchain-mrscraper
+export MRSCRAPER_API_TOKEN="YOUR_TOKEN"
 ```
-
-The Python SDK and LangChain Core are installed automatically.
-
-## Quick start
 
 ```python
-import os
-from langchain_mrscraper import MrScraperScraperAPI, MrScraperToolkit
+from langchain_mrscraper import MrScraperToolkit, MrScraperScrapeJSON
 
-os.environ["MRSCRAPER_API_KEY"] = "your-token"
-
-tools = MrScraperToolkit().get_tools()  # all three tools for an agent
-
-result = MrScraperScraperAPI().invoke({
-    "url": "https://books.toscrape.com/",
-    "markdown": True,
-})
-print(result)
+# All seven tools share one SDK client.
+tools = MrScraperToolkit().get_tools()
+by_name = {tool.name: tool for tool in tools}
+print(by_name["mrscraper_account"].invoke({}))
+print(by_name["mrscraper_scrape_html"].invoke({"url": "https://books.toscrape.com/"}))
+print(by_name["mrscraper_web_search"].invoke({"query": "web scraping", "country": "id", "num_results": 20}))
+print(MrScraperScrapeJSON().invoke({"url": "https://books.toscrape.com/", "prompt": "Extract titles and prices"}))
 ```
 
-Every tool supports `.invoke(...)` and `await .ainvoke(...)`. Authentication can be supplied through `token`, `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN` (in that order). You can also inject an existing `mrscraper.MrScraper` client using `client=...`.
+Tools support `invoke` and `ainvoke`, including synchronous invocation in notebooks. They return a JSON string with `status_code`, `data`, and `headers`. Binary responses are encoded as `{ "encoding": "base64", "base64": "…", "size_bytes": 123 }`. API errors propagate from the SDK. Input schemas reject unsupported fields.
 
-## Available tools
+Exports: `MrScraperAccount`, `MrScraperScrapeHTML`, `MrScraperScrapeMarkdown`, `MrScraperGetScreenshot`, `MrScraperScrapeBrand`, `MrScraperScrapeJSON`, `MrScraperWebSearch`, `MrScraperToolkit`, and `load_mrscraper_tools`.
 
-| Class | Tool name | SDK method | Input fields |
+Pass `token=`, `mrscraper_api_key=`, or an existing `client=MrScraper(...)` to tools/toolkit, or set `MRSCRAPER_API_KEY` / `MRSCRAPER_API_TOKEN`. Use `tool_names=["mrscraper_web_search"]` to select tools; an empty list returns none. Account accepts a positive `timeout` (default 30 seconds) and returns the Python SDK's safe account summary.
+
+## Options
+
+| Python / LangChain | Node / MCP | Default | Meaning |
 | --- | --- | --- | --- |
-| `MrScraperScraperAPI` | `mrscraper_scraper_api` | `scraper_api` | `url`, `html`, `markdown`, `screenshot`, plus page controls (below) |
-| `MrScraperWebSearch` | `mrscraper_web_search` | `web_search` | `query`, `country`, `num_results` (10–100), `timeout` |
-| `MrScraperAccount` | `mrscraper_account` | `account` | `timeout` |
+| `timeout` | `timeout` | `300` | Page deadline in seconds, integer 1–300 |
+| `geo_code` | `geoCode` | `"us"` | Country to load the page from |
+| `proxy_country` | `proxyCountry` | `"us"` | Proxy server country |
+| `super` | `superMode` | `False` / `false` | Use real-device routing; sent as `super` |
+| `wait_until` | `waitUntil` | `"domcontentloaded"` | Also accepts `load`, `networkidle0`, `networkidle2` |
+| `proxy` | `proxy` | omitted | Custom proxy URL |
+| `max_retries` | `maxRetries` | omitted | Nonnegative retry limit; omission means no limit |
+| `save_result` | `saveResult` | `False` / `false` | Save the result in the dashboard |
+| `block_resources` | `blockResources` | `False` / `false` | Block images, fonts, and stylesheets |
+| `wait_for_selector` | `waitForSelector` | omitted | Wait for a CSS selector |
+| `return_cookie` | `returnCookie` | `False` / `false` | Include session cookies |
+| `browser_rendering` | `browserRendering` | `False` / `false` | Enable browser rendering |
 
-Tool results are JSON strings containing the SDK's `status_code`, `data`, and `headers`.
+The first eight page controls apply to HTML, Markdown, screenshots, and JSON. The three loading controls (`block_resources`/`blockResources`, `wait_for_selector`/`waitForSelector`, `return_cookie`/`returnCookie`) apply to HTML, Markdown, and screenshots. Browser rendering can be selected for HTML, Markdown, and JSON; screenshots always enable it.
 
-## Scraper API
+Markdown accepts `html=False` / `html: false`; enabling HTML forces browser rendering. Screenshots accept `screenshot="full"` or `"top"`, `html=True` / `true`, and `markdown=False` / `false`. JSON accepts a `prompt` (default `"Extract all data as complete as possible."`), `html=False` / `false`, and `screenshot=False` / `false`. JSON does not expose loading or cookie controls. Brand takes only the target URL, plus authentication in the Node SDK.
 
-Fetch a public web page as rendered HTML, Markdown, screenshot, or a combination.
+Search takes `query`, `country="us"`, and `num_results=10` / `numResults: 10` (integer 10–100). Queries are trimmed and must contain 1–1,000 characters. Countries are two ASCII letters and are sent in lowercase. Search also accepts a positive local `timeout`, default 120 seconds. This timeout is not sent upstream as a page option.
 
-```python
-import base64
-import json
-from langchain_mrscraper import MrScraperScraperAPI
+## HTTP contract
 
-tool = MrScraperScraperAPI()
+The CLI repository is the source of truth for service behavior. These are seven services, using two API hosts:
 
-html = json.loads(tool.invoke({"url": "https://books.toscrape.com/"}))
-print(html["data"][:200])  # HTML only (the default) returns the HTML string
-
-combined = json.loads(tool.invoke({
-    "url": "https://books.toscrape.com/",
-    "html": True,
-    "markdown": True,
-    "screenshot": True,
-}))
-print(combined["data"]["markdown"][:200])
-png = base64.b64decode(combined["data"]["screenshot"])
-```
-
-`html` defaults to `True`; `markdown` and `screenshot` default to `False`. At least one must be true. Requesting Markdown or a screenshot returns an object in `data` with an entry for each requested output; the screenshot is a base64 string. `screenshot=True` enables browser rendering, so combining it with `browser_rendering=False` is rejected.
-
-Page controls: `timeout` (1–300 seconds, default 120), `geo_code` (default `"US"`), `proxy_country`, `block_resources`, `browser_rendering`, `super`, `use_proxy`, `proxy`, `wait_for_selector`, `wait_until`, `home_page`, `bypass_proxy`, `cookie_jar`, `headers`, `max_retries`, `token_cap`, `stream`, and `discard_token_secret`. Invalid URLs, limits, or unsupported fields are rejected by the tool schema before a request is made.
-
-## Web Search
-
-Search the web for real-time results: website URLs, titles, and descriptions.
-
-```python
-from langchain_mrscraper import MrScraperWebSearch
-
-result = MrScraperWebSearch().invoke({
-    "query": "e-menessaptieka.lv linkedin",
-    "country": "us",
-    "num_results": 10,
-})
-```
-
-`query` is required. `country` is optional (the service default applies when omitted). `num_results` is an integer from 10 to 100 (default 10). `timeout` defaults to 600 seconds. The response `data` is `{"success", "message", "data": [...]}`, where each result has `rank`, `title`, `url`, `description`, and `source`.
-
-## Account
-
-```python
-from langchain_mrscraper import MrScraperAccount
-
-print(MrScraperAccount().invoke({}))
-```
-
-Returns subscription status, token usage and limits, remaining quota, and rate limits. `timeout` defaults to 30 seconds.
-
-## Select tools for an agent
-
-```python
-from langchain_mrscraper import MrScraperToolkit
-
-tools = MrScraperToolkit(
-    token="your-token",
-    tool_names=["mrscraper_scraper_api", "mrscraper_web_search"],
-).get_tools()
-```
-
-`load_mrscraper_tools(...)` accepts the same configuration. `tool_names` filters by the exact names above; an empty list returns no tools.
-
-## Migration from 0.3.x
-
-Version 0.5.0 requires `mrscraper-sdk>=0.9.0,<0.10.0`, which exposes exactly three public methods. The toolkit now returns three tools instead of ten.
-
-| 0.3.x tool | 0.5.0 replacement |
+| Service | Request |
 | --- | --- |
-| `MrScraperHTML` (`mrscraper_scraper_html`) | `MrScraperScraperAPI` with `{"url": ...}` |
-| `MrScraperMarkdown` (`mrscraper_scraper_markdown`) | `MrScraperScraperAPI` with `{"url": ..., "html": False, "markdown": True}` |
-| `MrScraperScreenshot` (`mrscraper_get_screenshot`) | `MrScraperScraperAPI` with `{"url": ..., "html": False, "screenshot": True}` |
-| `MrScraperJSON`, `MrScraperMultiplePage`, `MrScraperSitemap`, `MrScraperBrand`, `MrScraperGetBrand` | Removed (no public SDK method). Fetch pages with `MrScraperScraperAPI` and let your model extract data, or pin `langchain-mrscraper<0.4`. |
-| `MrScraperWebSearch` (`url`, `raw`, `format`, `region`, `language`, `page`, `render_js`) | `MrScraperWebSearch` (`query`, `country`, `num_results`, `timeout`) |
-| `MrScraperAccount` | Unchanged |
-| `MrScraperFetchHTML` import alias | Removed; use `MrScraperScraperAPI` |
+| Account | `GET https://api.app.mrscraper.com/api/v1/subscription-accounts` |
+| HTML | `GET https://api.mrscraper.com?url=…&html=true&markdown=false&screenshot=false` |
+| Markdown | `GET https://api.mrscraper.com?url=…&html=false&markdown=true&screenshot=false` |
+| Screenshot | `GET https://api.mrscraper.com?url=…&browserRendering=true&screenshot=full&html=true&markdown=false` |
+| Brand | `GET https://api.mrscraper.com?action=brand-scraping&url=…&bundle=none` |
+| JSON | `GET https://api.mrscraper.com?url=…&agent=general&prompt=…&html=false&screenshot=false` |
+| Web search | `GET https://api.mrscraper.com?action=websearch&query=…&country=us&numResults=10` |
 
-Other notes:
+JSON uses GET until the encoded URL exceeds 8,000 characters. It then uses POST with `{ "url", "prompt", "agent": "general" }` in the JSON body and page controls in the query. Append `Json Schema:` and a JSON schema to the prompt to shape the extraction.
 
-- Screenshots now come back as a base64 string inside `data` (`data["screenshot"]`) together with any other requested outputs. The 0.3.x screenshot `full_page` option and its `timeout=300` / `wait_until="domcontentloaded"` defaults no longer exist; pass `timeout` and `wait_until` explicitly when needed.
-- Update toolkit `tool_names` filters to `mrscraper_scraper_api`, `mrscraper_web_search`, and `mrscraper_account`.
-- Earlier tools (create/rerun/bulk-rerun scrapers and result listing) remain removed.
+Authentication uses headers. Credentials are never placed in the query string. Page requests allow 30 seconds beyond the page timeout for HTTP transport; brand and search default to 120 seconds. Brand returns JSON synchronously with `bundle=none`.
 
-## Testing
+## Migration
 
-```bash
-pip install -e '.[dev]'
-pytest tests/unit_tests -v
-pytest -m 'not integration'
-```
+This release replaces the combined `scraper_api` service with `scrape_html`, `scrape_markdown`, and `get_screenshot`, and adds public `scrape_brand` and `scrape_json`. For combined outputs use `scrape_markdown(..., html=True)` or `get_screenshot(..., html=True, markdown=True)`. The old `full_page` option becomes `screenshot="full"` or `"top"`. LangChain tool names follow `mrscraper_<service>`.
 
-Live smoke tests are opt-in and consume API quota:
+Page defaults now match the CLI: 300-second timeout, US geolocation and proxy country, rendering off unless required by a chosen service, and no explicit retry limit. Search uses `query`, `country`, and a result count; old URL/locale/raw/format options are removed. Legacy scraper job, sitemap, rerun, result, and bundle-download methods are outside this seven-service API.
+
+## Manual testing
+
+These commands make live calls and consume quota. Each service can be tested separately.
 
 ```bash
-MRSCRAPER_RUN_LIVE=1 MRSCRAPER_API_KEY=your-token pytest tests/integration_tests -m integration -v
+# Before the Python SDK is published, install both local checkouts together:
+python -m pip install -e ../sdk-python -e '.[test]'
+export MRSCRAPER_API_TOKEN="YOUR_TOKEN"
+python manual_check_tools.py            # all seven services
+python manual_test.py account
+python manual_test.py scrape_html
+python manual_test.py scrape_markdown --args '{"html":true}'
+python manual_test.py get_screenshot --args '{"screenshot":"top"}'
+python manual_test.py scrape_brand --url https://mrscraper.com
+python manual_test.py scrape_json --args '{"prompt":"Extract titles and prices"}'
+python manual_test.py web_search --query "web scraping" --args '{"country":"id","num_results":20}'
+python manual_check_tools.py --async --only mrscraper_web_search
 ```
 
-`python manual_check_tools.py` runs every tool against the real API and saves responses to `debug_results/`.
+Responses and screenshots are saved under `debug_results/`; failures exit nonzero. Add `--async` before the service in `manual_test.py` to use `ainvoke`.
 
-## Local release workflow
+## Development
 
-1. Update `version` in `pyproject.toml` when ready to release.
-2. Build: `python -m build`.
-3. Validate: `python -m twine check dist/*`.
-4. Upload to TestPyPI: `python -m twine upload --repository testpypi dist/*`.
-5. Verify installation, then upload to PyPI: `python -m twine upload dist/*`.
+```bash
+python -m pytest -m "not integration" -q
+# Opt-in live suite:
+MRSCRAPER_RUN_LIVE=1 python -m pytest -m integration -q
+```
 
-Provider and per-tool documentation for a LangChain docs submission live in `docs/providers/mrscraper.mdx` and `docs/tools/*.mdx`.
+Version 0.6.0 requires the Python SDK's seven-service release, 0.10.0.
+
+## License
+
+MIT © MrScraper

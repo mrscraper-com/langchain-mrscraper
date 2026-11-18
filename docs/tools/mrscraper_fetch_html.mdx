@@ -1,8 +1,5 @@
 ---
-title: "MrScraperFetchHTML migration"
-description: "Use MrScraperScraperAPI with the current MrScraper SDK."
+title: "MrScraper service migration"
 ---
 
-The `MrScraperFetchHTML` import alias was removed in 0.5.0. Use [`MrScraperScraperAPI`](/oss/python/integrations/tools/mrscraper_scraper_api) (tool name `mrscraper_scraper_api`); it returns HTML by default. Set `browser_rendering=True` when JavaScript rendering is needed.
-
-See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the three current tools.
+The integration now exposes seven services. Use `mrscraper_account`, `mrscraper_scrape_html`, `mrscraper_scrape_markdown`, `mrscraper_get_screenshot`, `mrscraper_scrape_brand`, `mrscraper_scrape_json`, or `mrscraper_web_search`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for schemas, migration, and examples.

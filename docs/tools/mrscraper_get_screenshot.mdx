@@ -1,8 +1,9 @@
 ---
-title: "MrScraperScreenshot migration"
-description: "Use MrScraperScraperAPI instead of MrScraperScreenshot."
+title: "MrScraper get-screenshot"
 ---
 
-`MrScraperScreenshot` (`mrscraper_get_screenshot`) was removed in langchain-mrscraper 0.5.0 because `mrscraper-sdk` 0.9.0 no longer exposes a format-specific method. Use [`MrScraperScraperAPI`](/oss/python/integrations/tools/mrscraper_scraper_api) (tool name `mrscraper_scraper_api`) with `{"url": ..., "html": False, "screenshot": True}`. Combine `html`, `markdown`, and `screenshot` to get several outputs from one request. Screenshot output enables browser rendering automatically. The 0.3.x `full_page` option and the 300-second/`domcontentloaded` defaults no longer apply; pass `timeout` and `wait_until` explicitly if you need them.
+`mrscraper_get_screenshot`: Full-page or top-viewport base64 screenshot.
 
-See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the three current tools.
+Input: `{"url":"https://books.toscrape.com/"}`; pass service-specific snake_case options as needed.
+
+Supports `invoke` and `ainvoke`. Returns a JSON string containing `status_code`, `data`, and `headers`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for all options.

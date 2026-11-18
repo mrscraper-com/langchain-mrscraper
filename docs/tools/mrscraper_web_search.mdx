@@ -1,43 +1,9 @@
 ---
-title: "MrScraperWebSearch integration"
-description: "Search the web for real-time results: website URLs, titles, and descriptions."
+title: "MrScraper web-search"
 ---
 
-`MrScraperWebSearch` wraps the Python SDK's `web_search` service and is registered as `mrscraper_web_search`.
+`mrscraper_web_search`: Ranked web search results.
 
-## Setup and invocation
+Input: `{"query":"web scraping","country":"us","num_results":10}`.
 
-```bash
-pip install -U langchain-mrscraper
-```
-
-```python
-from langchain_mrscraper import MrScraperWebSearch
-
-tool = MrScraperWebSearch(token="your-api-token")
-result = tool.invoke({
-    "query": "e-menessaptieka.lv linkedin",
-    "country": "us",
-    "num_results": 10,
-})
-print(result)
-```
-
-Use `await tool.ainvoke(...)` for async invocation. Authentication also supports `mrscraper_api_key`, `MRSCRAPER_API_KEY`, or `MRSCRAPER_API_TOKEN`; an existing SDK client can be supplied with `client=...`.
-
-## Parameters and behavior
-
-| Parameter | Default | Description |
-| --- | --- | --- |
-| `query` | required | The search query. |
-| `country` | none | Country code for localized results, e.g. `us`. Omit to use the service default. |
-| `num_results` | `10` | Number of results, an integer from 10 to 100. |
-| `timeout` | `600` | HTTP timeout in seconds. |
-
-## Result format
-
-Tool output is a JSON string with `status_code`, `data`, and `headers`. `data` holds the API response: `{"success": ..., "message": ..., "data": [...]}`, where each result has `rank`, `title`, `url`, `description`, and `source`.
-
-## Migrating from 0.3.x
-
-The search query moved from `url` to `query`, `region` became `country`, and `num_results` was added. The `raw`, `format`, `language`, `page`, and `render_js` options were removed; results are always structured JSON.
+Supports `invoke` and `ainvoke`. Returns a JSON string containing `status_code`, `data`, and `headers`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for all options.

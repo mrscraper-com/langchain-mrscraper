@@ -1,8 +1,5 @@
 ---
-title: "MrScraperMarkdown migration"
-description: "Use MrScraperScraperAPI instead of MrScraperMarkdown."
+title: "MrScraper service migration"
 ---
 
-`MrScraperMarkdown` (`mrscraper_scraper_markdown`) was removed in langchain-mrscraper 0.5.0 because `mrscraper-sdk` 0.9.0 no longer exposes a format-specific method. Use [`MrScraperScraperAPI`](/oss/python/integrations/tools/mrscraper_scraper_api) (tool name `mrscraper_scraper_api`) with `{"url": ..., "html": False, "markdown": True}`. Combine `html`, `markdown`, and `screenshot` to get several outputs from one request.
-
-See the [MrScraper provider page](/oss/python/integrations/providers/mrscraper) for the three current tools.
+The integration now exposes seven services. Use `mrscraper_account`, `mrscraper_scrape_html`, `mrscraper_scrape_markdown`, `mrscraper_get_screenshot`, `mrscraper_scrape_brand`, `mrscraper_scrape_json`, or `mrscraper_web_search`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for schemas, migration, and examples.
