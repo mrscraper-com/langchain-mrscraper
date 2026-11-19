@@ -34,8 +34,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from langchain_mrscraper import MrScraperToolkit
 
-MIN_SDK = (0, 10, 0)
-MAX_SDK = (0, 11, 0)
+MIN_SDK = (0, 11, 0)
+MAX_SDK = (0, 12, 0)
 URL = "https://example.com"
 
 # (case label, tool name, input) in run order. Account goes first because it is
@@ -94,9 +94,9 @@ def check_sdk_version() -> None:
     parts = tuple(int(p) for p in installed.split(".")[:3] if p.isdigit())
     if not MIN_SDK <= parts < MAX_SDK:
         sys.exit(
-            f"mrscraper-sdk {installed} is installed but >=0.10.0,<0.11.0 is required "
+            f"mrscraper-sdk {installed} is installed but >=0.11.0,<0.12.0 is required "
             "(seven services are required).\n"
-            "Run: pip install -U 'mrscraper-sdk>=0.10.0,<0.11.0'"
+            "Run: pip install -U 'mrscraper-sdk>=0.11.0,<0.12.0'"
         )
     print(f"mrscraper-sdk {installed}")
 
@@ -110,6 +110,16 @@ def preview(data: Any, limit: int = 300) -> str:
     text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
     text = " ".join(text.split())
     return text if len(text) <= limit else text[:limit] + " ..."
+
+
+def image_extension(content: bytes) -> str:
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if content.startswith(b"RIFF") and content[8:12] == b"WEBP":
+        return ".webp"
+    return ".bin"
 
 
 def save(out_dir: Path, name: str, raw: str, result: dict[str, Any]) -> list[Path]:
@@ -126,8 +136,9 @@ def save(out_dir: Path, name: str, raw: str, result: dict[str, Any]) -> list[Pat
         paths.append(binary_path)
     elif isinstance(data, dict) and isinstance(data.get("screenshot"), str):
         encoded = data["screenshot"].split(",", 1)[-1]  # tolerate a data: URL prefix
-        image_path = out_dir / f"manual_{name}_{stamp}.png"
-        image_path.write_bytes(base64.b64decode(encoded))
+        content = base64.b64decode(encoded)
+        image_path = out_dir / f"manual_{name}_{stamp}{image_extension(content)}"
+        image_path.write_bytes(content)
         paths.append(image_path)
     return paths
 

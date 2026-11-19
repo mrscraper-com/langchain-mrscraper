@@ -20,16 +20,16 @@ Seven services share the same descriptions, parameter meanings, and defaults acr
 
 ## Installation
 
-Requires Python 3.9 or newer, LangChain Core, and `mrscraper-sdk>=0.10.0,<0.11.0` with the seven-service interface documented here.
+Requires Python 3.9 or newer, LangChain Core, and `mrscraper-sdk>=0.11.0,<0.12.0` with the seven-service interface documented here.
 
 ```bash
 python -m pip install --upgrade langchain-mrscraper
 ```
 
-Before the matching releases are published, install both local checkouts together:
+To install this checkout with its published SDK dependency:
 
 ```bash
-python -m pip install -e ../sdk-python -e '.[test]'
+python -m pip install -e '.[test]'
 ```
 
 ## Authentication
@@ -554,7 +554,7 @@ Pass an existing `MrScraper(http_client=http_client)` as `client=` to reuse a co
 
 ### Troubleshooting
 
-Install the matching Python SDK checkout before testing an unpublished integration release. Tool inputs use snake_case and reject unsupported fields. Parse the JSON string returned by a tool with `json.loads`; raw API nesting remains inside `data`.
+Install this checkout with `python -m pip install -e '.[test]'` to resolve the matching SDK dependency before testing. Tool inputs use snake_case and reject unsupported fields. Parse the JSON string returned by a tool with `json.loads`; raw API nesting remains inside `data`.
 
 ## Migration
 
@@ -567,7 +567,7 @@ Replace `MrScraperAccount` / `mrscraper_account` with `MrScraperStatus` / `mrscr
 The automated suite checks service behavior without production API calls.
 
 ```bash
-python -m pip install -e ../sdk-python -e '.[test]'
+python -m pip install -e '.[dev]'
 python -m pytest -m 'not integration' -q
 ruff check src tests
 mypy src

@@ -9,7 +9,7 @@ Each call spends API quota. Not collected by pytest.
 Add --async to call ainvoke instead of invoke. The token comes from --token,
 MRSCRAPER_API_KEY / MRSCRAPER_API_TOKEN, or MRSCRAPER_API_TOKEN=... in .env.
 The full response is saved to debug_results/ (git-ignored); a screenshot is
-also saved as a .png next to it.
+also saved next to it using its image format.
 """
 
 from __future__ import annotations
@@ -74,10 +74,10 @@ def check_sdk_version() -> None:
     except PackageNotFoundError:
         sys.exit("mrscraper-sdk is not installed. Run: pip install -e .")
     major_minor = tuple(int(p) for p in installed.split(".")[:2])
-    if major_minor != (0, 10):
+    if major_minor != (0, 11):
         sys.exit(
-            f"mrscraper-sdk {installed} is installed but >=0.10.0,<0.11.0 is required.\n"
-            "Run: pip install -U 'mrscraper-sdk>=0.10.0,<0.11.0'"
+            f"mrscraper-sdk {installed} is installed but >=0.11.0,<0.12.0 is required.\n"
+            "Run: pip install -U 'mrscraper-sdk>=0.11.0,<0.12.0'"
         )
 
 
@@ -95,6 +95,16 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def image_extension(content: bytes) -> str:
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if content.startswith(b"RIFF") and content[8:12] == b"WEBP":
+        return ".webp"
+    return ".bin"
+
+
 def save(tool: str, raw: str, result: dict[str, Any]) -> list[Path]:
     out_dir = ROOT / "debug_results"
     out_dir.mkdir(exist_ok=True)
@@ -104,8 +114,9 @@ def save(tool: str, raw: str, result: dict[str, Any]) -> list[Path]:
     data = result.get("data")
     if isinstance(data, dict) and isinstance(data.get("screenshot"), str):
         encoded = data["screenshot"].split(",", 1)[-1]  # tolerate a data: URL prefix
-        paths.append(out_dir / f"manual_{tool}_{stamp}.png")
-        paths[1].write_bytes(base64.b64decode(encoded))
+        content = base64.b64decode(encoded)
+        paths.append(out_dir / f"manual_{tool}_{stamp}{image_extension(content)}")
+        paths[1].write_bytes(content)
     return paths
 
 
