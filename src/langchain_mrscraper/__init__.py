@@ -3,24 +3,24 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from .tools import (
-    MrScraperAccount,
     MrScraperGetScreenshot,
     MrScraperScrapeBrand,
     MrScraperScrapeHTML,
     MrScraperScrapeJSON,
     MrScraperScrapeMarkdown,
+    MrScraperStatus,
     MrScraperToolkit,
     MrScraperWebSearch,
     load_mrscraper_tools,
 )
 
 __all__ = [
-    "MrScraperAccount",
     "MrScraperGetScreenshot",
     "MrScraperScrapeBrand",
     "MrScraperScrapeHTML",
     "MrScraperScrapeJSON",
     "MrScraperScrapeMarkdown",
+    "MrScraperStatus",
     "MrScraperToolkit",
     "MrScraperWebSearch",
     "load_mrscraper_tools",

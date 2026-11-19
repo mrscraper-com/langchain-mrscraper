@@ -19,10 +19,10 @@ async def test_live_tool(cls):
     tool = cls()
     payload = (
         {}
-        if cls.sdk_method == "account"
+        if cls.sdk_method == "status"
         else {"query": "web scraping"}
         if cls.sdk_method == "web_search"
-        else {"url": "https://books.toscrape.com/"}
+        else {"url": "https://example.com"}
     )
     result = json.loads(await tool.ainvoke(payload))
     assert result["status_code"] == 200 and result["data"] is not None

@@ -147,12 +147,6 @@ class WebSearchInput(_ToolInput):
     num_results: int = Field(
         default=10, ge=10, le=100, strict=True, description="Number of ranked results."
     )
-    timeout: float = Field(
-        default=120.0,
-        gt=0,
-        allow_inf_nan=False,
-        description="HTTP deadline in seconds.",
-    )
 
     @field_validator("query", mode="before")
     @classmethod
@@ -162,10 +156,8 @@ class WebSearchInput(_ToolInput):
         return value.strip()
 
 
-class AccountInput(_ToolInput):
-    timeout: float = Field(
-        default=30.0, gt=0, allow_inf_nan=False, description="HTTP deadline in seconds."
-    )
+class StatusInput(_ToolInput):
+    """Status takes no service parameters, matching the CLI."""
 
 
 class MrScraperBaseTool(BaseTool):
@@ -221,11 +213,18 @@ class MrScraperBaseTool(BaseTool):
         return _serialize_response(result)
 
 
-class MrScraperAccount(MrScraperBaseTool):
-    name: str = "mrscraper_account"
-    description: str = "Read account identity, subscription, token usage, remaining quota, and rate limits."
-    args_schema: type[BaseModel] = AccountInput
-    sdk_method: ClassVar[str] = "account"
+class MrScraperStatus(MrScraperBaseTool):
+    name: str = "mrscraper_status"
+    description: str = "Return the raw account status API response without summarizing or adding fields."
+    args_schema: type[BaseModel] = StatusInput
+    sdk_method: ClassVar[str] = "status"
+
+    def _to_args_and_kwargs(
+        self, tool_input: str | dict[str, Any], tool_call_id: str | None
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        # BaseTool bypasses validation for schemas with no fields.
+        StatusInput.model_validate(tool_input)
+        return (), {}
 
 
 class MrScraperScrapeHTML(MrScraperBaseTool):
@@ -273,7 +272,7 @@ class MrScraperWebSearch(MrScraperBaseTool):
 
 
 TOOL_CLASSES: tuple[type[MrScraperBaseTool], ...] = (
-    MrScraperAccount,
+    MrScraperStatus,
     MrScraperScrapeHTML,
     MrScraperScrapeMarkdown,
     MrScraperGetScreenshot,

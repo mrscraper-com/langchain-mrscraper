@@ -2,8 +2,8 @@
 
 Each call spends API quota. Not collected by pytest.
 
-    python manual_test.py account
-    python manual_test.py get_screenshot --url https://books.toscrape.com/ --args '{"screenshot":"top"}'
+    python manual_test.py status
+    python manual_test.py get_screenshot --url https://example.com --args '{"screenshot":"top"}'
     python manual_test.py web_search --query "python web scraping" --args '{"country":"us","num_results":10}'
 
 Add --async to call ainvoke instead of invoke. The token comes from --token,
@@ -30,17 +30,17 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from langchain_mrscraper import (
-    MrScraperAccount,
     MrScraperGetScreenshot,
     MrScraperScrapeBrand,
     MrScraperScrapeHTML,
     MrScraperScrapeJSON,
     MrScraperScrapeMarkdown,
+    MrScraperStatus,
     MrScraperWebSearch,
 )
 
 TOOLS = {
-    "account": MrScraperAccount,
+    "status": MrScraperStatus,
     "scrape_html": MrScraperScrapeHTML,
     "scrape_markdown": MrScraperScrapeMarkdown,
     "get_screenshot": MrScraperGetScreenshot,
@@ -85,7 +85,7 @@ def build_payload(args: argparse.Namespace) -> dict[str, Any]:
     options = json.loads(args.args)
     if not isinstance(options, dict):
         raise TypeError("--args must be a JSON object")
-    if args.tool == "account":
+    if args.tool == "status":
         return options
     return {
         ("query" if args.tool == "web_search" else "url"): (
@@ -138,7 +138,7 @@ async def main() -> int:
         "--async", dest="use_async", action="store_true", help="Use ainvoke."
     )
     parser.add_argument("tool", choices=TOOLS)
-    parser.add_argument("--url", default="https://books.toscrape.com/")
+    parser.add_argument("--url", default="https://example.com")
     parser.add_argument("--query", default="python web scraping")
     parser.add_argument(
         "--args", default="{}", help="JSON overrides using Python snake_case names"

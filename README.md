@@ -1,124 +1,290 @@
 # MrScraper LangChain Tools
 
-![](./mrscraper.jpeg)
+![MrScraper](./mrscraper.jpeg)
 
-Seven services matching the [MrScraper CLI](https://github.com/mrscraper-com/cli).
+Seven tools matching the [MrScraper CLI](https://github.com/mrscraper-com/cli), backed by the async Python SDK. Tool names and arguments use Python snake_case.
 
-| Service | Tool | Purpose |
-| --- | --- | --- |
-| `account` | `mrscraper_account` | Account, subscription, quota, and rate limits |
-| `scrape-html` | `mrscraper_scrape_html` | Raw page HTML |
-| `scrape-markdown` | `mrscraper_scrape_markdown` | Clean Markdown; optional HTML |
-| `get-screenshot` | `mrscraper_get_screenshot` | Full-page or top-viewport base64 screenshot |
-| `scrape-brand` | `mrscraper_scrape_brand` | Brand data as JSON |
-| `scrape-json` | `mrscraper_scrape_json` | Structured extraction using a prompt |
-| `web-search` | `mrscraper_web_search` | Ranked web search results |
+| CLI command | Tool name | Exported class | Purpose |
+| --- | --- | --- | --- |
+| `status` | `mrscraper_status` | `MrScraperStatus` | Raw account status API response |
+| `scrape-html` | `mrscraper_scrape_html` | `MrScraperScrapeHTML` | Raw page HTML |
+| `scrape-markdown` | `mrscraper_scrape_markdown` | `MrScraperScrapeMarkdown` | Markdown, optionally with HTML |
+| `get-screenshot` | `mrscraper_get_screenshot` | `MrScraperGetScreenshot` | Full-page or top-viewport screenshot |
+| `scrape-brand` | `mrscraper_scrape_brand` | `MrScraperScrapeBrand` | Website brand data as JSON |
+| `scrape-json` | `mrscraper_scrape_json` | `MrScraperScrapeJSON` | Structured extraction using a prompt |
+| `web-search` | `mrscraper_web_search` | `MrScraperWebSearch` | Ranked web search results |
 
-## Install and use
+## Installation and authentication
 
-Requires Python 3.9+, LangChain Core, and `mrscraper-sdk>=0.10.0,<0.11.0`. Publish/install the new Python SDK before installing this release. Obtain a token from [the app](https://app.mrscraper.com).
+Requires Python 3.9+, LangChain Core, and `mrscraper-sdk>=0.10.0,<0.11.0` with the seven-service interface below. Obtain a token from [the MrScraper app](https://app.mrscraper.com).
 
 ```bash
 python -m pip install -U langchain-mrscraper
 export MRSCRAPER_API_TOKEN="YOUR_TOKEN"
 ```
 
-```python
-from langchain_mrscraper import MrScraperToolkit, MrScraperScrapeJSON
+Before these releases are published, install the local SDK and integration together:
 
-# All seven tools share one SDK client.
-tools = MrScraperToolkit().get_tools()
-by_name = {tool.name: tool for tool in tools}
-print(by_name["mrscraper_account"].invoke({}))
-print(by_name["mrscraper_scrape_html"].invoke({"url": "https://books.toscrape.com/"}))
-print(by_name["mrscraper_web_search"].invoke({"query": "web scraping", "country": "id", "num_results": 20}))
-print(MrScraperScrapeJSON().invoke({"url": "https://books.toscrape.com/", "prompt": "Extract titles and prices"}))
+```bash
+python -m pip install -e ../sdk-python -e '.[test]'
 ```
 
-Tools support `invoke` and `ainvoke`, including synchronous invocation in notebooks. They return a JSON string with `status_code`, `data`, and `headers`. Binary responses are encoded as `{ "encoding": "base64", "base64": "…", "size_bytes": 123 }`. API errors propagate from the SDK. Input schemas reject unsupported fields.
+Pass `token=`, `mrscraper_api_key=`, or an existing `client=MrScraper(...)` when constructing a tool or toolkit. Otherwise, credentials come from `MRSCRAPER_API_KEY`, then `MRSCRAPER_API_TOKEN`. Authentication is configured outside tool inputs.
 
-Exports: `MrScraperAccount`, `MrScraperScrapeHTML`, `MrScraperScrapeMarkdown`, `MrScraperGetScreenshot`, `MrScraperScrapeBrand`, `MrScraperScrapeJSON`, `MrScraperWebSearch`, `MrScraperToolkit`, and `load_mrscraper_tools`.
+## Quickstart
 
-Pass `token=`, `mrscraper_api_key=`, or an existing `client=MrScraper(...)` to tools/toolkit, or set `MRSCRAPER_API_KEY` / `MRSCRAPER_API_TOKEN`. Use `tool_names=["mrscraper_web_search"]` to select tools; an empty list returns none. Account accepts a positive `timeout` (default 30 seconds) and returns the Python SDK's safe account summary.
+```python
+import json
 
-## Options
+from langchain_mrscraper import MrScraperToolkit
 
-| Python / LangChain | Node / MCP | Default | Meaning |
+
+tools = MrScraperToolkit().get_tools()
+by_name = {tool.name: tool for tool in tools}
+result = by_name["mrscraper_scrape_html"].invoke({
+    "url": "https://example.com",
+    "browser_rendering": True,
+})
+print(json.loads(result)["data"])
+```
+
+Tools return a JSON string and support both `invoke` and `ainvoke`, including synchronous invocation in notebooks with a running event loop. Examples use `example.com` as the target; replace it for your use case. Live requests use your account quota.
+
+## Shared page parameters
+
+These fields apply to HTML, Markdown, screenshots, and JSON extraction. Unsupported fields are rejected by the Pydantic input schemas.
+
+| CLI option | Python argument | Type | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| URL argument | `url` | `str` | required | Absolute HTTP or HTTPS page URL. |
+| `--timeout` | `timeout` | `int` | `300` | Page deadline in seconds, 1–300; HTTP transport adds 30 seconds. |
+| `--geo-code` | `geo_code` | `str` | `"us"` | Country to load the page from; two ASCII letters, sent in lowercase. |
+| `--proxy-country` | `proxy_country` | `str` | `"us"` | Proxy server country; two ASCII letters, sent in lowercase. |
+| `--super` | `super` | `bool` | `False` | Use real-device routing. |
+| `--wait-until` | `wait_until` | literal string | `"domcontentloaded"` | Also accepts `"load"`, `"networkidle0"`, or `"networkidle2"`. |
+| `--proxy` | `proxy` | `str` or `None` | `None` | Custom proxy URL; omitted when unset. |
+| `--max-retries` | `max_retries` | `int` or `None` | `None` | Nonnegative retry limit; omission means no limit. Zero is preserved. |
+| `--save-result` | `save_result` | `bool` | `False` | Save the result in the dashboard. |
+
+HTML, Markdown, and screenshots also accept these controls. JSON extraction does not accept them.
+
+| CLI option | Python argument | Type | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `--block-resources` | `block_resources` | `bool` | `False` | Block images, fonts, and stylesheets. |
+| `--wait-for-selector` | `wait_for_selector` | `str` or `None` | `None` | CSS selector to wait for; omitted when unset. |
+| `--return-cookie` | `return_cookie` | `bool` | `False` | Include browser session cookies. |
+
+Use Python `True`, `False`, and `None` in dictionaries. JSON passed to a manual runner uses `true`, `false`, and `null`. Options left unset use the defaults above.
+
+## Service examples
+
+### Status
+
+```python
+import json
+from langchain_mrscraper import MrScraperStatus
+
+result = json.loads(MrScraperStatus().invoke({}))
+print(result["data"])
+```
+
+Status takes an empty input object. Its HTTP deadline is fixed at 600 seconds, matching the CLI. The complete API response body is preserved inside `data`, including its original fields and nesting. No account summary, redaction of body fields, or calculated fields are added. Sensitive response headers are removed. When the API wraps account details in `data`, access them through `result["data"]["data"]`.
+
+### Scrape HTML
+
+```python
+import json
+from langchain_mrscraper import MrScraperScrapeHTML
+
+result = json.loads(MrScraperScrapeHTML().invoke({
+    "url": "https://example.com",
+    "browser_rendering": True,
+    "wait_for_selector": ".content",
+    "wait_until": "networkidle2",
+    "timeout": 120,
+    "geo_code": "us",
+    "proxy_country": "us",
+    "super": False,
+    "max_retries": 0,
+    "save_result": False,
+    "block_resources": False,
+    "return_cookie": False,
+}))
+print(result["data"])
+```
+
+`browser_rendering` is a `bool`, default `False`. HTML always requests `html=true`, `markdown=false`, and `screenshot=false`. The default body is HTML text; some page controls can make the API return JSON instead.
+
+### Scrape Markdown
+
+```python
+import json
+from langchain_mrscraper import MrScraperScrapeMarkdown
+
+result = json.loads(MrScraperScrapeMarkdown().invoke({
+    "url": "https://example.com",
+    "html": True,
+    "browser_rendering": False,
+}))
+print(result["data"])
+```
+
+`html` and `browser_rendering` are booleans, both default `False`. Setting `html=True` forces browser rendering and returns both outputs as JSON. Otherwise, Markdown is returned as text. This service always requests `markdown=true` and `screenshot=false`.
+
+### Get screenshot
+
+```python
+import base64
+import json
+from pathlib import Path
+from langchain_mrscraper import MrScraperGetScreenshot
+
+result = json.loads(MrScraperGetScreenshot().invoke({
+    "url": "https://example.com",
+    "screenshot": "top",
+    "html": False,
+    "markdown": True,
+}))
+image = result["data"]["screenshot"]
+Path("page.png").write_bytes(base64.b64decode(image))
+```
+
+| Argument | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `timeout` | `timeout` | `300` | Page deadline in seconds, integer 1–300 |
-| `geo_code` | `geoCode` | `"us"` | Country to load the page from |
-| `proxy_country` | `proxyCountry` | `"us"` | Proxy server country |
-| `super` | `superMode` | `False` / `false` | Use real-device routing; sent as `super` |
-| `wait_until` | `waitUntil` | `"domcontentloaded"` | Also accepts `load`, `networkidle0`, `networkidle2` |
-| `proxy` | `proxy` | omitted | Custom proxy URL |
-| `max_retries` | `maxRetries` | omitted | Nonnegative retry limit; omission means no limit |
-| `save_result` | `saveResult` | `False` / `false` | Save the result in the dashboard |
-| `block_resources` | `blockResources` | `False` / `false` | Block images, fonts, and stylesheets |
-| `wait_for_selector` | `waitForSelector` | omitted | Wait for a CSS selector |
-| `return_cookie` | `returnCookie` | `False` / `false` | Include session cookies |
-| `browser_rendering` | `browserRendering` | `False` / `false` | Enable browser rendering |
+| `screenshot` | `"full"` or `"top"` | `"full"` | Entire page or top viewport. |
+| `html` | `bool` | `True` | Include page HTML. |
+| `markdown` | `bool` | `False` | Include Markdown. |
 
-The first eight page controls apply to HTML, Markdown, screenshots, and JSON. The three loading controls (`block_resources`/`blockResources`, `wait_for_selector`/`waitForSelector`, `return_cookie`/`returnCookie`) apply to HTML, Markdown, and screenshots. Browser rendering can be selected for HTML, Markdown, and JSON; screenshots always enable it.
+Browser rendering is always enabled; there is no `browser_rendering` input for screenshots. Screenshot JSON retains the upstream base64 image. The API can still include HTML when `html=False` is requested.
 
-Markdown accepts `html=False` / `html: false`; enabling HTML forces browser rendering. Screenshots accept `screenshot="full"` or `"top"`, `html=True` / `true`, and `markdown=False` / `false`. JSON accepts a `prompt` (default `"Extract all data as complete as possible."`), `html=False` / `false`, and `screenshot=False` / `false`. JSON does not expose loading or cookie controls. Brand takes only the target URL, plus authentication in the Node SDK.
+### Scrape brand
 
-Search takes `query`, `country="us"`, and `num_results=10` / `numResults: 10` (integer 10–100). Queries are trimmed and must contain 1–1,000 characters. Countries are two ASCII letters and are sent in lowercase. Search also accepts a positive local `timeout`, default 120 seconds. This timeout is not sent upstream as a page option.
+```python
+import json
+from langchain_mrscraper import MrScraperScrapeBrand
 
-## HTTP contract
+result = json.loads(MrScraperScrapeBrand().invoke({
+    "url": "https://example.com",
+}))
+print(result["data"])
+```
 
-The CLI repository is the source of truth for service behavior. These are seven services, using two API hosts:
+Only `url` is accepted. The request uses `action=brand-scraping&bundle=none` and a fixed 120-second HTTP deadline. Brand data is typically in `result["data"]["data"]["brand"]`; the API's structure is preserved.
 
-| Service | Request |
-| --- | --- |
-| Account | `GET https://api.app.mrscraper.com/api/v1/subscription-accounts` |
-| HTML | `GET https://api.mrscraper.com?url=…&html=true&markdown=false&screenshot=false` |
-| Markdown | `GET https://api.mrscraper.com?url=…&html=false&markdown=true&screenshot=false` |
-| Screenshot | `GET https://api.mrscraper.com?url=…&browserRendering=true&screenshot=full&html=true&markdown=false` |
-| Brand | `GET https://api.mrscraper.com?action=brand-scraping&url=…&bundle=none` |
-| JSON | `GET https://api.mrscraper.com?url=…&agent=general&prompt=…&html=false&screenshot=false` |
-| Web search | `GET https://api.mrscraper.com?action=websearch&query=…&country=us&numResults=10` |
+### Scrape JSON
 
-JSON uses GET until the encoded URL exceeds 8,000 characters. It then uses POST with `{ "url", "prompt", "agent": "general" }` in the JSON body and page controls in the query. Append `Json Schema:` and a JSON schema to the prompt to shape the extraction.
+```python
+import json
+from langchain_mrscraper import MrScraperScrapeJSON
 
-Authentication uses headers. Credentials are never placed in the query string. Page requests allow 30 seconds beyond the page timeout for HTTP transport; brand and search default to 120 seconds. Brand returns JSON synchronously with `bundle=none`.
+result = json.loads(MrScraperScrapeJSON().invoke({
+    "url": "https://example.com",
+    "prompt": 'Extract the page title. Json Schema: {"type":"object","properties":{"title":{"type":"string"}}}',
+    "browser_rendering": True,
+    "html": False,
+    "screenshot": False,
+    "timeout": 180,
+}))
+print(result["data"])
+```
+
+| Argument | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `prompt` | `str` | `"Extract all data as complete as possible."` | Nonempty extraction instruction. Append `Json Schema:` and a schema to shape output. |
+| `browser_rendering` | `bool` | `False` | Enable browser rendering. |
+| `html` | `bool` | `False` | Include HTML. |
+| `screenshot` | `bool` | `False` | Include a base64 screenshot. |
+
+The SDK uses the `general` agent and GET requests. If the encoded URL exceeds 8,000 characters, it uses POST with `url`, `prompt`, and `agent` in the body and page controls in the query. Loading and cookie controls are unavailable.
+
+### Web search
+
+```python
+import json
+from langchain_mrscraper import MrScraperWebSearch
+
+result = json.loads(MrScraperWebSearch().invoke({
+    "query": "site:example.com documentation",
+    "country": "id",
+    "num_results": 20,
+}))
+print(result["data"])
+```
+
+| Argument | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `query` | `str` | required | Trimmed query text, 1–1,000 characters. |
+| `country` | `str` | `"us"` | Two-letter country code, sent in lowercase. |
+| `num_results` | `int` | `10` | Requested result count, 10–100; fewer may be returned. |
+
+Search uses a fixed 120-second HTTP deadline and has no `timeout` input. The result retains the API's `success`, `message`, and `data` fields, with ranked titles, URLs, descriptions, and sources.
+
+## Async use and tool selection
+
+```python
+import asyncio
+import json
+from langchain_mrscraper import MrScraperToolkit, load_mrscraper_tools
+
+async def main():
+    toolkit = MrScraperToolkit(tool_names=["mrscraper_scrape_markdown"])
+    tool = toolkit.get_tools()[0]
+    result = json.loads(await tool.ainvoke({"url": "https://example.com"}))
+    print(result["data"])
+
+asyncio.run(main())
+
+# An empty selection returns no tools.
+assert load_mrscraper_tools(token="YOUR_TOKEN", tool_names=[]) == []
+```
+
+A toolkit shares one SDK client across its tools. To reuse an HTTP connection pool, construct `MrScraper(http_client=http_client)` and pass it as `client=`. Manage the supplied HTTP client's lifetime yourself.
+
+## Responses and errors
+
+Each tool returns a JSON string containing `status_code`, `data`, and `headers`. Parse it with `json.loads`:
+
+```json
+{
+  "status_code": 200,
+  "data": "<html><body>Example</body></html>",
+  "headers": {"content-type": "text/html"}
+}
+```
+
+JSON response bodies keep their API fields and nesting; text remains a string. Binary responses are encoded as `{ "encoding": "base64", "base64": "…", "size_bytes": 123 }`. Combined page outputs retain the API structure.
+
+Invalid input raises Pydantic `ValidationError`. Authentication, HTTP, and transport failures propagate as the Python SDK's `AuthenticationError`, `APIError`, and `NetworkError` respectively. `APIError.status_code` contains the HTTP status when available.
 
 ## Migration
 
-This release replaces the combined `scraper_api` service with `scrape_html`, `scrape_markdown`, and `get_screenshot`, and adds public `scrape_brand` and `scrape_json`. For combined outputs use `scrape_markdown(..., html=True)` or `get_screenshot(..., html=True, markdown=True)`. The old `full_page` option becomes `screenshot="full"` or `"top"`. LangChain tool names follow `mrscraper_<service>`.
+Replace `MrScraperAccount` / `mrscraper_account` with `MrScraperStatus` / `mrscraper_status`. Status returns the raw API body; remove its old `timeout` input. Search also uses a fixed transport deadline and no longer accepts `timeout`.
 
-Page defaults now match the CLI: 300-second timeout, US geolocation and proxy country, rendering off unless required by a chosen service, and no explicit retry limit. Search uses `query`, `country`, and a result count; old URL/locale/raw/format options are removed. Legacy scraper job, sitemap, rerun, result, and bundle-download methods are outside this seven-service API.
+Replace the combined `scraper_api` service with `scrape_html`, `scrape_markdown`, or `get_screenshot`. Use the latter two for combined outputs. Replace `full_page` with `screenshot="full"` or `"top"`. Search uses `query`, `country`, and `num_results`. Legacy job, sitemap, rerun, result, and bundle-download methods are outside this seven-service interface.
 
-## Manual testing
-
-These commands make live calls and consume quota. Each service can be tested separately.
+## Development and manual checks
 
 ```bash
-# Before the Python SDK is published, install both local checkouts together:
 python -m pip install -e ../sdk-python -e '.[test]'
+python -m pytest -m "not integration" -q
+```
+
+The offline suite compares each tool schema and default with the Python SDK and exercises real SDK request construction with local HTTP responses. Manual checks make live calls and use quota:
+
+```bash
 export MRSCRAPER_API_TOKEN="YOUR_TOKEN"
-python manual_check_tools.py            # all seven services
-python manual_test.py account
-python manual_test.py scrape_html
-python manual_test.py scrape_markdown --args '{"html":true}'
-python manual_test.py get_screenshot --args '{"screenshot":"top"}'
-python manual_test.py scrape_brand --url https://mrscraper.com
-python manual_test.py scrape_json --args '{"prompt":"Extract titles and prices"}'
-python manual_test.py web_search --query "web scraping" --args '{"country":"id","num_results":20}'
+python manual_test.py status
+python manual_test.py scrape_html --url https://example.com
+python manual_test.py scrape_markdown --url https://example.com --args '{"html":true}'
+python manual_test.py get_screenshot --url https://example.com --args '{"screenshot":"top"}'
+python manual_test.py scrape_brand --url https://example.com
+python manual_test.py scrape_json --url https://example.com --args '{"prompt":"Extract the page title"}'
+python manual_test.py web_search --query 'site:example.com documentation' --args '{"country":"id","num_results":20}'
 python manual_check_tools.py --async --only mrscraper_web_search
 ```
 
-Responses and screenshots are saved under `debug_results/`; failures exit nonzero. Add `--async` before the service in `manual_test.py` to use `ainvoke`.
-
-## Development
-
-```bash
-python -m pytest -m "not integration" -q
-# Opt-in live suite:
-MRSCRAPER_RUN_LIVE=1 python -m pytest -m integration -q
-```
-
-Version 0.6.0 requires the Python SDK's seven-service release, 0.10.0.
+Add `--async` before the service in `manual_test.py` for `ainvoke`. Responses and screenshots are saved under `debug_results/`; failures exit nonzero. The opt-in live pytest suite requires `MRSCRAPER_RUN_LIVE=1`.
 
 ## License
 
-MIT © MrScraper
+MIT. See [LICENSE](./LICENSE).

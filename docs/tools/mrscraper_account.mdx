@@ -1,9 +1,5 @@
 ---
-title: "MrScraper account"
+title: "MrScraper status migration"
 ---
 
-`mrscraper_account`: Account, subscription, quota, and rate limits.
-
-Input: `{}` for the account summary.
-
-Supports `invoke` and `ainvoke`. Returns a JSON string containing `status_code`, `data`, and `headers`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for all options.
+The account tool has been renamed to `mrscraper_status`. Use [MrScraper status](./mrscraper_status.mdx) with an empty input object. It returns the raw account API response body and takes no service parameters.

@@ -1,0 +1,9 @@
+---
+title: "MrScraper status"
+---
+
+`mrscraper_status`: Account, subscription, quota, and rate limits.
+
+Input: `{}`. Returns the raw account API response body without summarizing or adding fields. The HTTP deadline is fixed at 600 seconds.
+
+Supports `invoke` and `ainvoke`. Returns a JSON string containing `status_code`, `data`, and `headers`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for all options.

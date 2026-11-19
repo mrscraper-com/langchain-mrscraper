@@ -14,13 +14,13 @@ from langchain_mrscraper import MrScraperToolkit, load_mrscraper_tools
 from langchain_mrscraper.tools import TOOL_CLASSES
 from mrscraper import MrScraper
 
-URL = "https://books.toscrape.com/"
+URL = "https://example.com"
 
 
 def payload(cls):
     return (
         {}
-        if cls.sdk_method == "account"
+        if cls.sdk_method == "status"
         else {"query": "web scraping"}
         if cls.sdk_method == "web_search"
         else {"url": URL}
@@ -48,7 +48,7 @@ def test_seven_services():
         if not name.startswith("_")
     }
     assert public == {
-        "account",
+        "status",
         "scrape_html",
         "scrape_markdown",
         "get_screenshot",
@@ -89,7 +89,7 @@ async def test_async_invocation(cls, client):
 
 
 @pytest.mark.parametrize(
-    "cls", [cls for cls in TOOL_CLASSES if cls.sdk_method != "account"]
+    "cls", [cls for cls in TOOL_CLASSES if cls.sdk_method != "status"]
 )
 def test_plain_string(cls, client):
     tool = cls(client=client)
@@ -121,7 +121,7 @@ async def test_real_sdk_request_mapping(cls):
     assert calls[0].method == "GET"
     if cls.sdk_method == "web_search":
         assert calls[0].url.params["action"] == "websearch"
-    elif cls.sdk_method != "account":
+    elif cls.sdk_method != "status":
         assert calls[0].url.params["url"] == URL
 
 
@@ -138,7 +138,7 @@ async def test_real_sdk_request_mapping(cls):
         (package.MrScraperWebSearch, {"query": " "}),
         (package.MrScraperWebSearch, {"country": "usa"}),
         (package.MrScraperWebSearch, {"num_results": 9}),
-        (package.MrScraperAccount, {"timeout": 0}),
+        (package.MrScraperStatus, {"timeout": 30}),
     ],
 )
 def test_invalid_inputs(cls, extra, client):

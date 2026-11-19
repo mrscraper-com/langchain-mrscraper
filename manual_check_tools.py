@@ -4,7 +4,7 @@ This spends API quota. It is not collected by pytest.
 
 Usage:
     python manual_check_tools.py                       # run all cases
-    python manual_check_tools.py --only mrscraper_account mrscraper_web_search
+    python manual_check_tools.py --only mrscraper_status mrscraper_web_search
     python manual_check_tools.py --skip get_screenshot
     python manual_check_tools.py --async               # use ainvoke instead of invoke
 
@@ -36,12 +36,12 @@ from langchain_mrscraper import MrScraperToolkit
 
 MIN_SDK = (0, 10, 0)
 MAX_SDK = (0, 11, 0)
-URL = "https://books.toscrape.com/"
+URL = "https://example.com"
 
 # (case label, tool name, input) in run order. Account goes first because it is
 # cheap and confirms the token before quota is spent on scraping.
 CASES: list[tuple[str, str, dict[str, Any]]] = [
-    ("account", "mrscraper_account", {}),
+    ("status", "mrscraper_status", {}),
     *[
         (name, f"mrscraper_{name}", {"url": URL})
         for name in (
