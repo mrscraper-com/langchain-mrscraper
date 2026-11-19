@@ -1,0 +1,59 @@
+---
+title: "MrScraper Web search"
+---
+
+Search the web and return ranked results with titles, URLs, descriptions, and sources.
+
+Tool: `mrscraper_web_search`. Supports `invoke` and `ainvoke`.
+
+## Parameters
+
+| Parameter     | HTTP field   | Type | Default  | Description                                                                                       |
+| ------------- | ------------ | ---- | -------- | ------------------------------------------------------------------------------------------------- |
+| `query`       | `query`      | str  | Required | Search query text, trimmed before sending, containing 1 to 1000 characters.                       |
+| `country`     | `country`    | str  | `"us"`   | Two-letter country code to search from, sent in lowercase.                                        |
+| `num_results` | `numResults` | int  | `10`     | Number of search results to request, as an integer from 10 to 100. Fewer results may be returned. |
+
+## Example
+
+```python
+import json
+from langchain_mrscraper import MrScraperWebSearch
+
+result = json.loads(MrScraperWebSearch().invoke({'query': 'site:example.com documentation', 'country': 'id', 'num_results': 20}))
+print(result["data"])
+```
+
+## Response
+
+The API body contains success, message, a data array, and tokenUsage. Each result includes rank, title, url, description, and source.
+
+Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
+
+Decoded response after `json.loads(tool.invoke(...))`:
+**Success response**
+
+```json
+{
+  "status_code": 200,
+  "data": {
+    "success": true,
+    "message": "Example response",
+    "data": [
+      {
+        "rank": 1,
+        "title": "Example result",
+        "url": "https://example.com",
+        "description": "Example result description.",
+        "source": "example.com"
+      }
+    ],
+    "tokenUsage": 1
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  }
+}
+```
+
+Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.

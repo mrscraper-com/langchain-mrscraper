@@ -1,0 +1,66 @@
+---
+title: "MrScraper Scrape brand"
+---
+
+Extract a website's colors, typography, logos, and social links as JSON.
+
+Tool: `mrscraper_scrape_brand`. Supports `invoke` and `ainvoke`.
+
+## Parameters
+
+| Parameter | HTTP field | Type | Default  | Description                                        |
+| --------- | ---------- | ---- | -------- | -------------------------------------------------- |
+| `url`     | `url`      | str  | Required | Absolute HTTP or HTTPS URL of the page to process. |
+
+## Example
+
+```python
+import json
+from langchain_mrscraper import MrScraperScrapeBrand
+
+result = json.loads(MrScraperScrapeBrand().invoke({'url': 'https://example.com'}))
+print(result["data"])
+```
+
+## Response
+
+The API body contains message and a data object with job_id, status, url, final_url, brand, and error. Brand details are available at data.data.brand in the response envelope.
+
+Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
+
+Decoded response after `json.loads(tool.invoke(...))`:
+**Success response**
+
+```json
+{
+  "status_code": 200,
+  "data": {
+    "data": {
+      "job_id": "JOB_ID",
+      "status": "succeeded",
+      "url": "https://example.com",
+      "final_url": "https://example.com",
+      "brand": {
+        "name": "Example brand",
+        "colors": {
+          "background": "#ffffff",
+          "text": "#222222"
+        },
+        "typography": {
+          "body": {
+            "font_family": "Example font"
+          }
+        }
+      },
+      "error": null,
+      "bundle_url": null
+    },
+    "message": "Example response"
+  },
+  "headers": {
+    "content-type": "application/json"
+  }
+}
+```
+
+Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.
