@@ -22,6 +22,46 @@ print(result["data"])
 
 ## Response
 
-The complete account API response body is preserved inside data. If the API wraps account details in data, those details are available at data.data. Sensitive response headers are removed.
+The API body contains message and data. Account details remain nested in data, including subscriptionItem and scraperAllowance. The response envelope therefore exposes account details at data.data. Sensitive response headers are removed.
+
+Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
+
+Decoded response after `json.loads(tool.invoke(...))`:
+**Success response**
+
+```json
+{
+  "status_code": 200,
+  "data": {
+    "message": "Example response",
+    "data": {
+      "id": "ACCOUNT_ID",
+      "tokenLimit": 100000,
+      "tokenUsage": 2500,
+      "stripeStatus": "active",
+      "user": {
+        "name": "Example user",
+        "email": "user@example.com",
+        "isVerified": true
+      },
+      "subscriptionItem": {
+        "name": "Example plan",
+        "tokenLimit": 100000
+      },
+      "scraperAllowance": {
+        "remaining": 97500,
+        "plans": [
+          {
+            "remaining": 97500
+          }
+        ]
+      }
+    }
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  }
+}
+```
 
 Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.

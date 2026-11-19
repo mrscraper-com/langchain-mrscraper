@@ -31,12 +31,27 @@ Tool: `mrscraper_scrape_html`. Supports `invoke` and `ainvoke`.
 import json
 from langchain_mrscraper import MrScraperScrapeHTML
 
-result = json.loads(MrScraperScrapeHTML().invoke({'url': 'https://example.com', 'browser_rendering': True, 'warm_start': True, 'wait_for_selector': '.content', 'timeout': 120, 'max_retries': 0}))
+result = json.loads(MrScraperScrapeHTML().invoke({'url': 'https://example.com', 'browser_rendering': True, 'warm_start': True, 'wait_for_selector': 'body', 'timeout': 120, 'max_retries': 0}))
 print(result["data"])
 ```
 
 ## Response
 
 The default response body is HTML text. Additional controls can cause the API to return JSON; the returned structure is preserved.
+
+Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
+
+Decoded response after `json.loads(tool.invoke(...))`:
+**Success response**
+
+```json
+{
+  "status_code": 200,
+  "data": "<html><body>Example page content...</body></html>",
+  "headers": {
+    "content-type": "text/html; charset=utf-8"
+  }
+}
+```
 
 Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.

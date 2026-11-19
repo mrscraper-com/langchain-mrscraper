@@ -26,6 +26,34 @@ print(result["data"])
 
 ## Response
 
-The response body contains success, message, and a data array. Each result includes rank, title, url, description, and source.
+The API body contains success, message, a data array, and tokenUsage. Each result includes rank, title, url, description, and source.
+
+Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
+
+Decoded response after `json.loads(tool.invoke(...))`:
+**Success response**
+
+```json
+{
+  "status_code": 200,
+  "data": {
+    "success": true,
+    "message": "Example response",
+    "data": [
+      {
+        "rank": 1,
+        "title": "Example result",
+        "url": "https://example.com",
+        "description": "Example result description.",
+        "source": "example.com"
+      }
+    ],
+    "tokenUsage": 1
+  },
+  "headers": {
+    "content-type": "application/json; charset=utf-8"
+  }
+}
+```
 
 Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.

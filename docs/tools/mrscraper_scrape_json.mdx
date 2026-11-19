@@ -30,12 +30,44 @@ Tool: `mrscraper_scrape_json`. Supports `invoke` and `ainvoke`.
 import json
 from langchain_mrscraper import MrScraperScrapeJSON
 
-result = json.loads(MrScraperScrapeJSON().invoke({'url': 'https://example.com', 'prompt': 'Extract the page title. Json Schema: {"type":"object","properties":{"title":{"type":"string"}}}', 'browser_rendering': True}))
+result = json.loads(MrScraperScrapeJSON().invoke({'url': 'https://example.com', 'prompt': 'Extract the first 2 items with title and price. Json Schema: {"type":"array","items":{"type":"object","properties":{"title":{"type":"string"},"price":{"type":"string"}},"required":["title","price"]}}', 'browser_rendering': True}))
 print(result["data"])
 ```
 
 ## Response
 
-The response body contains the extraction result in the API's original structure. Optional HTML and screenshot outputs may add fields.
+Extraction results are in the API body's data field and follow the requested schema. Response metadata includes thread_id, token_usage, status, error, runtime, and cookies. html, markdown, and screenshot can be empty strings when not requested.
+
+Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
+
+Decoded response after `json.loads(tool.invoke(...))`:
+**Success response**
+
+```json
+{
+  "status_code": 200,
+  "data": {
+    "success": true,
+    "data": [
+      {
+        "title": "Example item",
+        "price": "10.00"
+      }
+    ],
+    "thread_id": "THREAD_ID",
+    "token_usage": 1,
+    "html": "",
+    "markdown": "",
+    "screenshot": "",
+    "status": "Results ready",
+    "error": "",
+    "runtime": 1.23,
+    "cookies": []
+  },
+  "headers": {
+    "content-type": "application/json"
+  }
+}
+```
 
 Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.
