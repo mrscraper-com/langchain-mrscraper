@@ -1,9 +1,29 @@
 ---
-title: "MrScraper scrape-brand"
+title: "MrScraper Scrape brand"
 ---
 
-`mrscraper_scrape_brand`: Brand data as JSON.
+Extract a website's colors, typography, logos, and social links as JSON.
 
-Input: `{"url":"https://example.com"}`; pass service-specific snake_case options as needed.
+Tool: `mrscraper_scrape_brand`. Supports `invoke` and `ainvoke`.
 
-Supports `invoke` and `ainvoke`. Returns a JSON string containing `status_code`, `data`, and `headers`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for all options.
+## Parameters
+
+| Parameter | HTTP field | Type | Default  | Description                                        |
+| --------- | ---------- | ---- | -------- | -------------------------------------------------- |
+| `url`     | `url`      | str  | Required | Absolute HTTP or HTTPS URL of the page to process. |
+
+## Example
+
+```python
+import json
+from langchain_mrscraper import MrScraperScrapeBrand
+
+result = json.loads(MrScraperScrapeBrand().invoke({'url': 'https://example.com'}))
+print(result["data"])
+```
+
+## Response
+
+The response body preserves the API brand result. Brand data is typically available at data.data.brand in the response envelope.
+
+Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.

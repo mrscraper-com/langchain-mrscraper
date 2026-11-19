@@ -213,3 +213,33 @@ def test_shared_client_created_once(client):
         tools = load_mrscraper_tools(token="explicit")
     factory.assert_called_once_with(token="explicit")
     assert all(t.client is client for t in tools)
+
+
+@pytest.mark.parametrize(
+    "cls", [package.MrScraperScrapeHTML, package.MrScraperScrapeMarkdown]
+)
+async def test_warm_start_reaches_the_sdk_request(cls):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        tool = cls(client=MrScraper("test", http_client=http))
+        for value in [False, True]:
+            await tool.ainvoke({"url": URL, "warm_start": value})
+            assert calls[-1].url.params["warmStart"] == str(value).lower()
+        for value in ["true", 1, None]:
+            with pytest.raises(ValidationError):
+                await tool.ainvoke({"url": URL, "warm_start": value})
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    "cls", [package.MrScraperGetScreenshot, package.MrScraperScrapeJSON]
+)
+def test_warm_start_rejected_for_other_page_tools(cls, client):
+    with pytest.raises(ValidationError):
+        cls(client=client).invoke({"url": URL, "warm_start": True})
+    getattr(client, cls.sdk_method).assert_not_awaited()

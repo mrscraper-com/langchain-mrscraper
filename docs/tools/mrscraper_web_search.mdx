@@ -1,9 +1,31 @@
 ---
-title: "MrScraper web-search"
+title: "MrScraper Web search"
 ---
 
-`mrscraper_web_search`: Ranked web search results.
+Search the web and return ranked results with titles, URLs, descriptions, and sources.
 
-Input: `{"query":"web scraping","country":"us","num_results":10}`.
+Tool: `mrscraper_web_search`. Supports `invoke` and `ainvoke`.
 
-Supports `invoke` and `ainvoke`. Returns a JSON string containing `status_code`, `data`, and `headers`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for all options.
+## Parameters
+
+| Parameter     | HTTP field   | Type | Default  | Description                                                                                       |
+| ------------- | ------------ | ---- | -------- | ------------------------------------------------------------------------------------------------- |
+| `query`       | `query`      | str  | Required | Search query text, trimmed before sending, containing 1 to 1000 characters.                       |
+| `country`     | `country`    | str  | `"us"`   | Two-letter country code to search from, sent in lowercase.                                        |
+| `num_results` | `numResults` | int  | `10`     | Number of search results to request, as an integer from 10 to 100. Fewer results may be returned. |
+
+## Example
+
+```python
+import json
+from langchain_mrscraper import MrScraperWebSearch
+
+result = json.loads(MrScraperWebSearch().invoke({'query': 'site:example.com documentation', 'country': 'id', 'num_results': 20}))
+print(result["data"])
+```
+
+## Response
+
+The response body contains success, message, and a data array. Each result includes rank, title, url, description, and source.
+
+Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.

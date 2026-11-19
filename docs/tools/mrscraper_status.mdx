@@ -1,9 +1,27 @@
 ---
-title: "MrScraper status"
+title: "MrScraper Status"
 ---
 
-`mrscraper_status`: Account, subscription, quota, and rate limits.
+Return the raw account status API response without summarizing, redacting body fields, or adding calculated fields.
 
-Input: `{}`. Returns the raw account API response body without summarizing or adding fields. The HTTP deadline is fixed at 600 seconds.
+Tool: `mrscraper_status`. Supports `invoke` and `ainvoke`.
 
-Supports `invoke` and `ainvoke`. Returns a JSON string containing `status_code`, `data`, and `headers`. See the [SDK README](https://github.com/mrscraper-com/langchain-mrscraper#readme) for all options.
+## Parameters
+
+This service takes no service parameters. Authentication is configured separately.
+
+## Example
+
+```python
+import json
+from langchain_mrscraper import MrScraperStatus
+
+result = json.loads(MrScraperStatus().invoke({}))
+print(result["data"])
+```
+
+## Response
+
+The complete account API response body is preserved inside data. If the API wraps account details in data, those details are available at data.data. Sensitive response headers are removed.
+
+Returns a JSON string with status_code, data, and headers. See the [README](../../README.md) for authentication and integration details.
