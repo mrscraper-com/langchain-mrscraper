@@ -68,8 +68,8 @@ class UrlInput(_ToolInput):
 class BrandInput(UrlInput):
     """Brand accepts the page timeout, warm start, and country controls."""
 
-    timeout: int = Field(
-        default=300,
+    timeout: Optional[int] = Field(
+        default=None,
         ge=1,
         le=330,
         strict=True,
@@ -108,22 +108,12 @@ class PageInput(UrlInput):
         pattern="^[A-Za-z]{2}$",
         description="Two-letter country code to load the page from, sent in lowercase.",
     )
-    save_result: bool = Field(
-        default=True,
-        description="Whether to save the result to the dashboard Result tab.",
-    )
     max_age: int = Field(
         default=0,
         ge=0,
         le=604800000,
         strict=True,
         description="Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape.",
-    )
-    token_cap: Optional[int] = Field(
-        default=None,
-        ge=1,
-        strict=True,
-        description="Maximum total tokens the scrape and its retries can use, as a positive integer. Omit this parameter for no limit.",
     )
     max_retries: Optional[int] = Field(
         default=None,

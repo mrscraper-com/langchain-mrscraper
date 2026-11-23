@@ -14,9 +14,7 @@ Tool: `mrscraper_get_screenshot`. Supports `invoke` and `ainvoke`.
 | `timeout`           | `timeout`         | int  | `300`            | Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds.                                            |
 | `wait_for_selector` | `waitForSelector` | str  | `None` (omitted) | CSS selector or text to wait for on the page before returning the result, up to 500 characters.                                                  |
 | `geo_code`          | `geoCode`         | str  | `None` (omitted) | Two-letter country code to load the page from, sent in lowercase.                                                                                |
-| `save_result`       | `saveResult`      | bool | `True`           | Whether to save the result to the dashboard Result tab.                                                                                          |
 | `max_age`           | `maxAge`          | int  | `0`              | Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape. |
-| `token_cap`         | `tokenCap`        | int  | `None` (omitted) | Maximum total tokens the scrape and its retries can use, as a positive integer. Omit this parameter for no limit.                                |
 | `max_retries`       | `maxRetries`      | int  | `None` (omitted) | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.                                                           |
 
 ## Example
@@ -31,7 +29,7 @@ print(result["data"])
 
 ## Response
 
-The response body is JSON containing a base64 PNG screenshot of the full page and the page HTML.
+The response body is JSON containing a base64 PNG screenshot of the full page and the page HTML, which the API includes even though html=false is sent.
 
 Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
 

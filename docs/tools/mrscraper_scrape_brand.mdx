@@ -11,7 +11,7 @@ Tool: `mrscraper_scrape_brand`. Supports `invoke` and `ainvoke`.
 | Parameter    | HTTP field  | Type | Default          | Description                                                                                           |
 | ------------ | ----------- | ---- | ---------------- | ----------------------------------------------------------------------------------------------------- |
 | `url`        | `url`       | str  | Required         | Absolute HTTP or HTTPS URL of the page to process.                                                    |
-| `timeout`    | `timeout`   | int  | `300`            | Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds. |
+| `timeout`    | `timeout`   | int  | `None` (omitted) | Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds. |
 | `warm_start` | `warmStart` | bool | `False`          | Whether to open the site's home page first to warm the session before loading the target URL.         |
 | `geo_code`   | `geoCode`   | str  | `None` (omitted) | Two-letter country code to load the page from, sent in lowercase.                                     |
 

@@ -140,7 +140,10 @@ async def test_real_sdk_request_mapping(cls):
         (package.MrScraperScrapeHTML, {"geo_code": "usa"}),
         (package.MrScraperScrapeHTML, {"max_age": -1}),
         (package.MrScraperScrapeHTML, {"max_age": 604800001}),
-        (package.MrScraperScrapeHTML, {"token_cap": 0}),
+        (package.MrScraperScrapeHTML, {"token_cap": 10}),
+        (package.MrScraperScrapeHTML, {"save_result": False}),
+        (package.MrScraperScrapeJSON, {"save_result": True}),
+        (package.MrScraperGetScreenshot, {"token_cap": 10}),
         (package.MrScraperScrapeHTML, {"wait_for_selector": " "}),
         (package.MrScraperScrapeHTML, {"wait_for_selector": "a" * 501}),
         (package.MrScraperScrapeMarkdown, {"max_retries": -1}),
@@ -282,7 +285,15 @@ def test_warm_start_rejected_for_screenshots(client):
             package.MrScraperGetScreenshot,
             package.MrScraperScrapeJSON,
         )
-        for option in ("super", "wait_until", "proxy_country", "proxy", "return_cookie")
+        for option in (
+            "super",
+            "wait_until",
+            "proxy_country",
+            "proxy",
+            "return_cookie",
+            "save_result",
+            "token_cap",
+        )
     ]
     + [
         (package.MrScraperGetScreenshot, "html"),
@@ -314,15 +325,31 @@ async def test_defaults_reach_the_sdk_request():
     loading = [("timeout", "300"), ("warmStart", "false"), ("blockResources", "false")]
     saving = [("saveResult", "true"), ("maxAge", "0")]
     assert await _requests(package.MrScraperScrapeHTML, {"url": URL}) == [
-        [("url", URL), ("html", "true"), *loading, *saving, ("screenshot", "false")]
+        [
+            ("url", URL),
+            ("html", "true"),
+            ("markdown", "false"),
+            *loading,
+            *saving,
+            ("screenshot", "false"),
+        ]
     ]
     assert await _requests(package.MrScraperScrapeMarkdown, {"url": URL}) == [
-        [("url", URL), ("markdown", "true"), *loading, *saving]
+        [
+            ("url", URL),
+            ("markdown", "true"),
+            ("html", "false"),
+            ("screenshot", "false"),
+            *loading,
+            *saving,
+        ]
     ]
     assert await _requests(package.MrScraperGetScreenshot, {"url": URL}) == [
         [
             ("url", URL),
             ("screenshot", "full"),
+            ("html", "false"),
+            ("markdown", "false"),
             ("browserRendering", "true"),
             ("timeout", "300"),
             *saving,
@@ -349,9 +376,7 @@ async def test_options_reach_the_sdk_request():
         "timeout": 330,
         "wait_for_selector": ".ready",
         "geo_code": "ID",
-        "save_result": False,
         "max_age": 604800000,
-        "token_cap": 25,
         "max_retries": 0,
     }
     wire = [
@@ -360,11 +385,11 @@ async def test_options_reach_the_sdk_request():
         ("blockResources", "true"),
         ("waitForSelector", ".ready"),
     ]
+    # saveResult is always true and tokenCap is never sent.
     tail = [
         ("geoCode", "id"),
-        ("saveResult", "false"),
+        ("saveResult", "true"),
         ("maxAge", "604800000"),
-        ("tokenCap", "25"),
         ("maxRetries", "0"),
     ]
     loading = {"warm_start": True, "block_resources": True}
@@ -375,6 +400,8 @@ async def test_options_reach_the_sdk_request():
     assert markdown == [
         ("url", URL),
         ("markdown", "true"),
+        ("html", "false"),
+        ("screenshot", "false"),
         ("browserRendering", "false"),
         *wire,
         ("action", "a"),
@@ -412,7 +439,12 @@ async def test_html_screenshot_sends_browser_rendering(screenshot, browser_rende
     if browser_rendering is not None:
         value["browser_rendering"] = browser_rendering
     (params,) = await _requests(package.MrScraperScrapeHTML, value)
-    assert params[:3] == [("url", URL), ("html", "true"), ("browserRendering", "true")]
+    assert params[:4] == [
+        ("url", URL),
+        ("html", "true"),
+        ("markdown", "false"),
+        ("browserRendering", "true"),
+    ]
     assert dict(params)["screenshot"] == screenshot
 
 
@@ -442,16 +474,13 @@ async def test_brand_inputs_reach_the_sdk_request():
             {"url": URL, "timeout": 120, "warm_start": True, "geo_code": "GB"}
         )
     brand = [("action", "brand-scraping"), ("url", URL), ("bundle", "none")]
-    assert list(calls[0].url.params.multi_items()) == [
-        *brand,
-        ("timeout", "300"),
-        ("warmStart", "false"),
-    ]
+    # timeout is sent only when set; warmStart is always sent.
+    assert list(calls[0].url.params.multi_items()) == [*brand, ("warmStart", "false")]
     assert list(calls[1].url.params.multi_items()) == [
         *brand,
         ("timeout", "120"),
         ("warmStart", "true"),
         ("geoCode", "gb"),
     ]
-    # The brand deadline follows the timeout instead of a fixed 120 seconds.
+    # The brand deadline is the timeout, or 300 seconds when omitted, plus 30.
     assert [call.extensions["timeout"]["read"] for call in calls] == [330, 150]

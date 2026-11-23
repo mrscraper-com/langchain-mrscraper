@@ -60,7 +60,7 @@ Response examples show selected keys and types observed in live API responses. V
 
 ### Page controls
 
-HTML, Markdown, screenshots, and JSON extraction share `url`, `timeout`, `waitForSelector`, `geoCode`, `saveResult`, `maxAge`, `tokenCap`, and `maxRetries` (using the naming style shown below). Defaults are a 300-second timeout (up to 330), dashboard saving on, and a `maxAge` of 0 milliseconds, which always scrapes fresh; `maxAge` accepts up to 604800000 (7 days). `geoCode`, `tokenCap`, and `maxRetries` are omitted unless set, so the API loads the page from the United States with no token or retry limit. Scrape brand accepts `url`, `timeout`, `warmStart`, and `geoCode` with the same defaults. Exact types, defaults, and standard descriptions appear in each service table.
+HTML, Markdown, screenshots, and JSON extraction share `url`, `timeout`, `waitForSelector`, `geoCode`, `maxAge`, and `maxRetries` (using the naming style shown below). Defaults are a 300-second timeout (up to 330) and a `maxAge` of 0 milliseconds, which always scrapes fresh; `maxAge` accepts up to 604800000 (7 days). `geoCode` and `maxRetries` are omitted unless set, so the API loads the page from the United States with no retry limit. Results are always saved to the dashboard (`saveResult=true`), and `tokenCap` is never sent. Scrape brand accepts `url`, `timeout`, `warmStart`, and `geoCode`: it always sends `warmStart` (default `false`) and sends `timeout` and `geoCode` only when set. Exact types, defaults, and standard descriptions appear in each service table.
 
 ### Loading controls
 
@@ -68,7 +68,7 @@ HTML, Markdown, and JSON extraction also accept `browserRendering`, `warmStart`,
 
 ### Fixed request fields
 
-Each service adds its documented fixed fields automatically, so they are not service parameters: `html=true` for HTML (plus `browserRendering=true` when a screenshot is set), `markdown=true` for Markdown, `screenshot=full` and `browserRendering=true` for screenshots, `action=brand-scraping` and `bundle=none` for brand, `agent=general` for JSON extraction, and `action=websearch` for search.
+Each service adds its documented fixed fields automatically, so they are not service parameters: `html=true` and `markdown=false` for HTML (plus `browserRendering=true` when a screenshot is set), `markdown=true`, `html=false`, and `screenshot=false` for Markdown, `screenshot=full`, `html=false`, `markdown=false`, and `browserRendering=true` for screenshots, `action=brand-scraping` and `bundle=none` for brand, `agent=general` for JSON extraction, and `action=websearch` for search. HTML, Markdown, screenshots, and JSON extraction also always send `saveResult=true`.
 
 ## Service reference
 
@@ -155,13 +155,11 @@ Retrieve the raw HTML of a page. Browser rendering is optional.
 | `wait_for_selector` | `waitForSelector`  | str            | `None` (omitted) | CSS selector or text to wait for on the page before returning the result, up to 500 characters.                                                                                                                                                                                                       |
 | `action`            | `action`           | str            | `None` (omitted) | Scraper action that routes the request or simply flags it, useful for separating analytics per domain.                                                                                                                                                                                                |
 | `geo_code`          | `geoCode`          | str            | `None` (omitted) | Two-letter country code to load the page from, sent in lowercase.                                                                                                                                                                                                                                     |
-| `save_result`       | `saveResult`       | bool           | `True`           | Whether to save the result to the dashboard Result tab.                                                                                                                                                                                                                                               |
 | `max_age`           | `maxAge`           | int            | `0`              | Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape.                                                                                                                                                      |
-| `token_cap`         | `tokenCap`         | int            | `None` (omitted) | Maximum total tokens the scrape and its retries can use, as a positive integer. Omit this parameter for no limit.                                                                                                                                                                                     |
 | `max_retries`       | `maxRetries`       | int            | `None` (omitted) | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.                                                                                                                                                                                                                |
 | `screenshot`        | `screenshot`       | `False` or str | `False`          | Screenshot to capture with the HTML: false for none, full for the entire page, top for the first viewport, or a WIDTHxHEIGHT viewport from 100 to 3840 pixels with an optional -ZOOM percent from 25 to 300, such as 1280x800 or 1920x1080-75. Setting a screenshot also sends browserRendering=true. |
 
-The request uses `html=true`. The screenshot is optional; setting one also sends `browserRendering=true`, because a screenshot needs a rendered page, and the response becomes JSON with `html` and `screenshot`.
+The request uses `html=true`, `markdown=false`, and `saveResult=true`. The screenshot is optional; setting one also sends `browserRendering=true`, because a screenshot needs a rendered page, and the response becomes JSON with `html` and `screenshot`.
 
 #### Example
 
@@ -224,12 +222,10 @@ Retrieve a page as clean Markdown. Browser rendering is optional.
 | `wait_for_selector` | `waitForSelector`  | str  | `None` (omitted) | CSS selector or text to wait for on the page before returning the result, up to 500 characters.                                                                                                 |
 | `action`            | `action`           | str  | `None` (omitted) | Scraper action that routes the request or simply flags it, useful for separating analytics per domain.                                                                                          |
 | `geo_code`          | `geoCode`          | str  | `None` (omitted) | Two-letter country code to load the page from, sent in lowercase.                                                                                                                               |
-| `save_result`       | `saveResult`       | bool | `True`           | Whether to save the result to the dashboard Result tab.                                                                                                                                         |
 | `max_age`           | `maxAge`           | int  | `0`              | Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape.                                                |
-| `token_cap`         | `tokenCap`         | int  | `None` (omitted) | Maximum total tokens the scrape and its retries can use, as a positive integer. Omit this parameter for no limit.                                                                               |
 | `max_retries`       | `maxRetries`       | int  | `None` (omitted) | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.                                                                                                          |
 
-The request uses `markdown=true`.
+The request uses `markdown=true`, `html=false`, `screenshot=false`, and `saveResult=true`.
 
 #### Example
 
@@ -273,12 +269,10 @@ Capture a base64 PNG screenshot of the full page. Browser rendering is always en
 | `timeout`           | `timeout`         | int  | `300`            | Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds.                                            |
 | `wait_for_selector` | `waitForSelector` | str  | `None` (omitted) | CSS selector or text to wait for on the page before returning the result, up to 500 characters.                                                  |
 | `geo_code`          | `geoCode`         | str  | `None` (omitted) | Two-letter country code to load the page from, sent in lowercase.                                                                                |
-| `save_result`       | `saveResult`      | bool | `True`           | Whether to save the result to the dashboard Result tab.                                                                                          |
 | `max_age`           | `maxAge`          | int  | `0`              | Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape. |
-| `token_cap`         | `tokenCap`        | int  | `None` (omitted) | Maximum total tokens the scrape and its retries can use, as a positive integer. Omit this parameter for no limit.                                |
 | `max_retries`       | `maxRetries`      | int  | `None` (omitted) | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.                                                           |
 
-The request uses `screenshot=full` and `browserRendering=true`; the area and rendering are not service parameters.
+The request uses `screenshot=full`, `browserRendering=true`, `html=false`, `markdown=false`, and `saveResult=true`; these are not service parameters. The API still includes the page HTML in the response.
 
 #### Example
 
@@ -292,7 +286,7 @@ print(result["data"])
 
 #### Response
 
-The response body is JSON containing a base64 PNG screenshot of the full page and the page HTML.
+The response body is JSON containing a base64 PNG screenshot of the full page and the page HTML, which the API includes even though html=false is sent.
 
 Decoded response after `json.loads(tool.invoke(...))`:
 
@@ -322,11 +316,11 @@ Extract a website's colors, typography, logos, and social links as JSON.
 | Parameter    | HTTP field  | Type | Default          | Description                                                                                           |
 | ------------ | ----------- | ---- | ---------------- | ----------------------------------------------------------------------------------------------------- |
 | `url`        | `url`       | str  | Required         | Absolute HTTP or HTTPS URL of the page to process.                                                    |
-| `timeout`    | `timeout`   | int  | `300`            | Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds. |
+| `timeout`    | `timeout`   | int  | `None` (omitted) | Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds. |
 | `warm_start` | `warmStart` | bool | `False`          | Whether to open the site's home page first to warm the session before loading the target URL.         |
 | `geo_code`   | `geoCode`   | str  | `None` (omitted) | Two-letter country code to load the page from, sent in lowercase.                                     |
 
-The request uses `action=brand-scraping` and `bundle=none`. Like the page services, the HTTP request allows the timeout plus 30 seconds.
+The request uses `action=brand-scraping` and `bundle=none` and always sends `warmStart`; `timeout` and `geoCode` are sent only when set. The HTTP request allows the timeout plus 30 seconds, or 330 seconds when `timeout` is omitted.
 
 #### Example
 
@@ -397,13 +391,11 @@ Extract structured JSON from a page using a natural-language prompt. Append Json
 | `block_resources`   | `blockResources`   | bool | `False`                                       | Whether to block images, fonts, and stylesheets while loading the page.                                                                                                                         |
 | `wait_for_selector` | `waitForSelector`  | str  | `None` (omitted)                              | CSS selector or text to wait for on the page before returning the result, up to 500 characters.                                                                                                 |
 | `geo_code`          | `geoCode`          | str  | `None` (omitted)                              | Two-letter country code to load the page from, sent in lowercase.                                                                                                                               |
-| `save_result`       | `saveResult`       | bool | `True`                                        | Whether to save the result to the dashboard Result tab.                                                                                                                                         |
 | `max_age`           | `maxAge`           | int  | `0`                                           | Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape.                                                |
-| `token_cap`         | `tokenCap`         | int  | `None` (omitted)                              | Maximum total tokens the scrape and its retries can use, as a positive integer. Omit this parameter for no limit.                                                                               |
 | `max_retries`       | `maxRetries`       | int  | `None` (omitted)                              | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.                                                                                                          |
 | `screenshot`        | `screenshot`       | bool | `False`                                       | Whether to include a base64 screenshot in the response.                                                                                                                                         |
 
-The request uses `agent=general` and GET. If the encoded URL exceeds 8,000 characters, it switches to POST with `url`, `prompt`, and `agent` in the body; page controls remain in the query.
+The request uses `agent=general`, `saveResult=true`, and GET. If the encoded URL exceeds 8,000 characters, it switches to POST with `url`, `prompt`, and `agent` in the body; page controls remain in the query.
 
 #### Example
 
@@ -560,7 +552,7 @@ Install this checkout with `python -m pip install -e '.[test]'` to resolve the m
 
 ## Migration
 
-Version 0.7.0 matches the Scraper API reference and requires `mrscraper-sdk` 0.12. Removed inputs: `super`, `wait_until`, `proxy_country`, `proxy`, `return_cookie`, `html` for `mrscraper_scrape_markdown`, and `screenshot`, `html`, and `markdown` for `mrscraper_get_screenshot`; screenshots always capture the full page. New inputs: `max_age`, `token_cap`, `action` for HTML and Markdown, and `screenshot` for `mrscraper_scrape_html`; `mrscraper_scrape_json` now accepts `warm_start`, `block_resources`, and `wait_for_selector`; `mrscraper_scrape_brand` now accepts `timeout`, `warm_start`, and `geo_code`. Changed defaults: `save_result=True`, `html=True` for JSON extraction, `browser_rendering=None` (automatic), `geo_code=None` and `country=None` (omitted), and page timeouts up to 330 seconds. Tool inputs reject unsupported fields, so remove the old inputs from saved agent configurations.
+Version 0.7.0 matches the Scraper API reference and requires `mrscraper-sdk` 0.12. Removed inputs: `super`, `wait_until`, `proxy_country`, `proxy`, `return_cookie`, `save_result`, `token_cap`, `html` for `mrscraper_scrape_markdown`, and `screenshot`, `html`, and `markdown` for `mrscraper_get_screenshot`; screenshots always capture the full page. Results are always saved to the dashboard (`saveResult=true`), and `tokenCap` is never sent. New inputs: `max_age`, `action` for HTML and Markdown, and `screenshot` for `mrscraper_scrape_html`; `mrscraper_scrape_json` now accepts `warm_start`, `block_resources`, and `wait_for_selector`; `mrscraper_scrape_brand` now accepts `timeout`, `warm_start`, and `geo_code`. Changed defaults: `html=True` for JSON extraction, `browser_rendering=None` (automatic), `geo_code=None` and `country=None` (omitted), and page timeouts up to 330 seconds. Tool inputs reject unsupported fields, so remove the old inputs from saved agent configurations.
 
 ## Development and testing
 
