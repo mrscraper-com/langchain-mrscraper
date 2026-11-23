@@ -34,9 +34,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from langchain_mrscraper import MrScraperToolkit
 
-MIN_SDK = (0, 11, 0)
-MAX_SDK = (0, 12, 0)
+MIN_SDK = (0, 12, 0)
+MAX_SDK = (0, 13, 0)
 URL = "https://example.com"
+BOOKS = "https://books.toscrape.com/"
 
 # (case label, tool name, input) in run order. Account goes first because it is
 # cheap and confirms the token before quota is spent on scraping.
@@ -52,10 +53,57 @@ CASES: list[tuple[str, str, dict[str, Any]]] = [
             "scrape_json",
         )
     ],
+    ("web_search", "mrscraper_web_search", {"query": "python web scraping"}),
+    # Representative non-default options for each parameter group.
     (
-        "web_search",
+        "scrape_html_options",
+        "mrscraper_scrape_html",
+        {
+            "url": URL,
+            "screenshot": "top",
+            "browser_rendering": False,
+            "max_age": 3600000,
+            "token_cap": 50,
+            "geo_code": "gb",
+            "save_result": False,
+            "wait_for_selector": "body",
+            "timeout": 120,
+        },
+    ),
+    (
+        "scrape_brand_options",
+        "mrscraper_scrape_brand",
+        {"url": URL, "timeout": 120, "warm_start": True, "geo_code": "GB"},
+    ),
+    (
+        "scrape_markdown_options",
+        "mrscraper_scrape_markdown",
+        {
+            "url": URL,
+            "browser_rendering": False,
+            "block_resources": True,
+            "geo_code": "us",
+            "max_retries": 1,
+        },
+    ),
+    (
+        "scrape_json_options",
+        "mrscraper_scrape_json",
+        {
+            "url": BOOKS,
+            "prompt": "Extract the page title",
+            "html": False,
+            "screenshot": True,
+            "browser_rendering": True,
+            "block_resources": True,
+            "wait_for_selector": "body",
+            "timeout": 120,
+        },
+    ),
+    (
+        "web_search_country",
         "mrscraper_web_search",
-        {"query": "python web scraping", "country": "us", "num_results": 10},
+        {"query": "running shoes", "country": "id", "num_results": 20},
     ),
 ]
 
@@ -94,9 +142,9 @@ def check_sdk_version() -> None:
     parts = tuple(int(p) for p in installed.split(".")[:3] if p.isdigit())
     if not MIN_SDK <= parts < MAX_SDK:
         sys.exit(
-            f"mrscraper-sdk {installed} is installed but >=0.11.0,<0.12.0 is required "
+            f"mrscraper-sdk {installed} is installed but >=0.12.0,<0.13.0 is required "
             "(seven services are required).\n"
-            "Run: pip install -U 'mrscraper-sdk>=0.11.0,<0.12.0'"
+            "Run: pip install -U 'mrscraper-sdk>=0.12.0,<0.13.0'"
         )
     print(f"mrscraper-sdk {installed}")
 

@@ -2,29 +2,26 @@
 title: "MrScraper Scrape Markdown"
 ---
 
-Retrieve a page as Markdown. Including HTML also enables browser rendering and returns both outputs as JSON.
+Retrieve a page as clean Markdown. Browser rendering is optional.
 
 Tool: `mrscraper_scrape_markdown`. Supports `invoke` and `ainvoke`.
 
 ## Parameters
 
-| Parameter           | HTTP field         | Type                                                            | Default              | Description                                                                                     |
-| ------------------- | ------------------ | --------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
-| `url`               | `url`              | str                                                             | Required             | Absolute HTTP or HTTPS URL of the page to process.                                              |
-| `timeout`           | `timeout`          | int                                                             | `300`                | Page load timeout in seconds, from 1 to 300. The HTTP request allows 30 additional seconds.     |
-| `geo_code`          | `geoCode`          | str                                                             | `"us"`               | Two-letter country code to load the page from, sent in lowercase.                               |
-| `proxy_country`     | `proxyCountry`     | str                                                             | `"us"`               | Two-letter country code of the proxy server, sent in lowercase.                                 |
-| `super`             | `super`            | bool                                                            | `False`              | Whether to route the request through real devices.                                              |
-| `wait_until`        | `waitUntil`        | str: `domcontentloaded`, `load`, `networkidle0`, `networkidle2` | `"domcontentloaded"` | Navigation completion event to wait for: domcontentloaded, load, networkidle0, or networkidle2. |
-| `proxy`             | `proxy`            | str                                                             | `None` (omitted)     | Custom proxy URL used to load the page.                                                         |
-| `max_retries`       | `maxRetries`       | int                                                             | `None` (omitted)     | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.          |
-| `save_result`       | `saveResult`       | bool                                                            | `False`              | Whether to save the result to the dashboard Result tab.                                         |
-| `block_resources`   | `blockResources`   | bool                                                            | `False`              | Whether to block images, fonts, and stylesheets while loading the page.                         |
-| `wait_for_selector` | `waitForSelector`  | str                                                             | `None` (omitted)     | Wait for the page to contain the specified CSS selector before returning the result.            |
-| `return_cookie`     | `returnCookie`     | bool                                                            | `False`              | Whether to include browser session cookies in the response.                                     |
-| `browser_rendering` | `browserRendering` | bool                                                            | `False`              | Whether to render the page in a browser before returning the result.                            |
-| `warm_start`        | `warmStart`        | bool                                                            | `False`              | Whether to enable warm start for more reliable scraping, at the cost of additional latency.     |
-| `html`              | `html`             | bool                                                            | `False`              | Whether to include the page HTML in the response.                                               |
+| Parameter           | HTTP field         | Type | Default          | Description                                                                                                                                                                                     |
+| ------------------- | ------------------ | ---- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`               | `url`              | str  | Required         | Absolute HTTP or HTTPS URL of the page to process.                                                                                                                                              |
+| `browser_rendering` | `browserRendering` | bool | `None` (omitted) | Whether to load the page in a browser: true always does and false never does. Omit it to load the page without a browser first and switch to a browser automatically if the request is blocked. |
+| `timeout`           | `timeout`          | int  | `300`            | Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds.                                                                                           |
+| `warm_start`        | `warmStart`        | bool | `False`          | Whether to open the site's home page first to warm the session before loading the target URL.                                                                                                   |
+| `block_resources`   | `blockResources`   | bool | `False`          | Whether to block images, fonts, and stylesheets while loading the page.                                                                                                                         |
+| `wait_for_selector` | `waitForSelector`  | str  | `None` (omitted) | CSS selector or text to wait for on the page before returning the result, up to 500 characters.                                                                                                 |
+| `action`            | `action`           | str  | `None` (omitted) | Scraper action that routes the request or simply flags it, useful for separating analytics per domain.                                                                                          |
+| `geo_code`          | `geoCode`          | str  | `None` (omitted) | Two-letter country code to load the page from, sent in lowercase.                                                                                                                               |
+| `save_result`       | `saveResult`       | bool | `True`           | Whether to save the result to the dashboard Result tab.                                                                                                                                         |
+| `max_age`           | `maxAge`           | int  | `0`              | Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape.                                                |
+| `token_cap`         | `tokenCap`         | int  | `None` (omitted) | Maximum total tokens the scrape and its retries can use, as a positive integer. Omit this parameter for no limit.                                                                               |
+| `max_retries`       | `maxRetries`       | int  | `None` (omitted) | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.                                                                                                          |
 
 ## Example
 
@@ -32,32 +29,17 @@ Tool: `mrscraper_scrape_markdown`. Supports `invoke` and `ainvoke`.
 import json
 from langchain_mrscraper import MrScraperScrapeMarkdown
 
-result = json.loads(MrScraperScrapeMarkdown().invoke({'url': 'https://example.com', 'html': True, 'warm_start': True}))
+result = json.loads(MrScraperScrapeMarkdown().invoke({'url': 'https://example.com', 'warm_start': True, 'max_age': 86400000}))
 print(result["data"])
 ```
 
 ## Response
 
-The default response body is Markdown text. Enabling HTML returns JSON containing both HTML and Markdown.
+The response body is Markdown text.
 
 Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
 
 Decoded response after `json.loads(tool.invoke(...))`:
-**With html enabled**
-
-```json
-{
-  "status_code": 200,
-  "data": {
-    "html": "<html>...</html>",
-    "markdown": "# Example page\n\n..."
-  },
-  "headers": {
-    "content-type": "application/json"
-  }
-}
-```
-
 **Default Markdown text**
 
 ```json

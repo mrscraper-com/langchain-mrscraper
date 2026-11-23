@@ -6,9 +6,10 @@ import asyncio
 import base64
 import json
 import os
+import re
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, ClassVar, Literal, Optional
+from typing import Any, ClassVar, Literal, Optional, Union
 from urllib.parse import urlparse
 
 from langchain_core.tools import BaseTool
@@ -46,6 +47,12 @@ class _ToolInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _nonblank(value: Optional[str], name: str) -> Optional[str]:
+    if value is not None and not value.strip():
+        raise ValueError(f"{name} must be non-empty")
+    return value
+
+
 class UrlInput(_ToolInput):
     url: str = Field(description="Absolute HTTP or HTTPS URL of the page to process.")
 
@@ -58,37 +65,65 @@ class UrlInput(_ToolInput):
         return value
 
 
-class PageInput(UrlInput):
+class BrandInput(UrlInput):
+    """Brand accepts the page timeout, warm start, and country controls."""
+
     timeout: int = Field(
         default=300,
         ge=1,
-        le=300,
+        le=330,
         strict=True,
-        description="Page load timeout in seconds, from 1 to 300. The HTTP request allows 30 additional seconds.",
+        description="Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds.",
     )
-    geo_code: str = Field(
-        default="us",
+    warm_start: bool = Field(
+        default=False,
+        strict=True,
+        description="Whether to open the site's home page first to warm the session before loading the target URL.",
+    )
+    geo_code: Optional[str] = Field(
+        default=None,
         pattern="^[A-Za-z]{2}$",
         description="Two-letter country code to load the page from, sent in lowercase.",
     )
-    proxy_country: str = Field(
-        default="us",
-        pattern="^[A-Za-z]{2}$",
-        description="Two-letter country code of the proxy server, sent in lowercase.",
+
+
+class PageInput(UrlInput):
+    """Page controls shared by HTML, Markdown, screenshots, and JSON extraction."""
+
+    timeout: int = Field(
+        default=300,
+        ge=1,
+        le=330,
+        strict=True,
+        description="Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds.",
     )
-    super: bool = Field(
-        default=False, description="Whether to route the request through real devices."
-    )
-    wait_until: Literal["domcontentloaded", "load", "networkidle0", "networkidle2"] = (
-        Field(
-            default="domcontentloaded",
-            description="Navigation completion event to wait for: domcontentloaded, load, networkidle0, or networkidle2.",
-        )
-    )
-    proxy: Optional[str] = Field(
+    wait_for_selector: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Custom proxy URL used to load the page.",
+        max_length=500,
+        description="CSS selector or text to wait for on the page before returning the result, up to 500 characters.",
+    )
+    geo_code: Optional[str] = Field(
+        default=None,
+        pattern="^[A-Za-z]{2}$",
+        description="Two-letter country code to load the page from, sent in lowercase.",
+    )
+    save_result: bool = Field(
+        default=True,
+        description="Whether to save the result to the dashboard Result tab.",
+    )
+    max_age: int = Field(
+        default=0,
+        ge=0,
+        le=604800000,
+        strict=True,
+        description="Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape.",
+    )
+    token_cap: Optional[int] = Field(
+        default=None,
+        ge=1,
+        strict=True,
+        description="Maximum total tokens the scrape and its retries can use, as a positive integer. Omit this parameter for no limit.",
     )
     max_retries: Optional[int] = Field(
         default=None,
@@ -96,74 +131,88 @@ class PageInput(UrlInput):
         strict=True,
         description="Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.",
     )
-    save_result: bool = Field(
-        default=False,
-        description="Whether to save the result to the dashboard Result tab.",
-    )
+
+    @field_validator("wait_for_selector")
+    @classmethod
+    def _selector(cls, value: Optional[str]) -> Optional[str]:
+        return _nonblank(value, "wait_for_selector")
 
 
 class LoadingInput(PageInput):
+    """Loading controls accepted by HTML, Markdown, and JSON extraction."""
+
+    browser_rendering: Optional[bool] = Field(
+        default=None,
+        description="Whether to load the page in a browser: true always does and false never does. Omit it to load the page without a browser first and switch to a browser automatically if the request is blocked.",
+    )
+    warm_start: bool = Field(
+        default=False,
+        strict=True,
+        description="Whether to open the site's home page first to warm the session before loading the target URL.",
+    )
     block_resources: bool = Field(
         default=False,
         description="Whether to block images, fonts, and stylesheets while loading the page.",
     )
-    wait_for_selector: Optional[str] = Field(
+
+
+class _ActionInput(LoadingInput):
+    action: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Wait for the page to contain the specified CSS selector before returning the result.",
+        description="Scraper action that routes the request or simply flags it, useful for separating analytics per domain.",
     )
-    return_cookie: bool = Field(
+
+    @field_validator("action")
+    @classmethod
+    def _action(cls, value: Optional[str]) -> Optional[str]:
+        return _nonblank(value, "action")
+
+
+_SCREENSHOT_VIEWPORT = re.compile(r"([0-9]{3,4})x([0-9]{3,4})(?:-([0-9]{2,3}))?")
+
+
+class ScrapeHtmlInput(_ActionInput):
+    screenshot: Union[Literal[False], str] = Field(
         default=False,
-        description="Whether to include browser session cookies in the response.",
+        description="Screenshot to capture with the HTML: false for none, full for the entire page, top for the first viewport, or a WIDTHxHEIGHT viewport from 100 to 3840 pixels with an optional -ZOOM percent from 25 to 300, such as 1280x800 or 1920x1080-75. Setting a screenshot also sends browserRendering=true.",
     )
 
-
-class ScrapeHtmlInput(LoadingInput):
-    warm_start: bool = Field(
-        default=False,
-        strict=True,
-        description="Whether to enable warm start for more reliable scraping, at the cost of additional latency.",
-    )
-    browser_rendering: bool = Field(
-        default=False,
-        description="Whether to render the page in a browser before returning the result.",
-    )
-
-
-class ScrapeMarkdownInput(ScrapeHtmlInput):
-    html: bool = Field(
-        default=False,
-        description="Whether to include the page HTML in the response.",
-    )
-
-
-class GetScreenshotInput(LoadingInput):
-    screenshot: Literal["full", "top"] = Field(
-        default="full",
-        description="Screenshot area to capture: full for the entire page or top for the top viewport.",
-    )
-    html: bool = Field(
-        default=True,
-        description="Whether to include the page HTML in the response.",
-    )
-    markdown: bool = Field(
-        default=False,
-        description="Whether to include the page Markdown in the response.",
-    )
+    @field_validator("screenshot", mode="before")
+    @classmethod
+    def _screenshot(cls, value: Any) -> Any:
+        if value is False or value in ("full", "top"):
+            return value
+        match = (
+            _SCREENSHOT_VIEWPORT.fullmatch(value) if isinstance(value, str) else None
+        )
+        if match:
+            width, height = int(match[1]), int(match[2])
+            zoom = 100 if match[3] is None else int(match[3])
+            if 100 <= width <= 3840 and 100 <= height <= 3840 and 25 <= zoom <= 300:
+                return value
+        raise ValueError(
+            "screenshot must be false, full, top, or WIDTHxHEIGHT from 100 to 3840 "
+            "pixels with an optional -ZOOM from 25 to 300, such as 1280x800 or 1920x1080-75"
+        )
 
 
-class ScrapeJsonInput(PageInput):
+class ScrapeMarkdownInput(_ActionInput):
+    """Markdown accepts the HTML controls without a screenshot."""
+
+
+class GetScreenshotInput(PageInput):
+    """Screenshots always render the full page in a browser."""
+
+
+class ScrapeJsonInput(LoadingInput):
     prompt: str = Field(
         default="Extract all data as complete as possible.",
         min_length=1,
         description="Instructions describing the data to extract. Append Json Schema: and a JSON schema to shape the output.",
     )
-    browser_rendering: bool = Field(
-        default=False,
-        description="Whether to render the page in a browser before returning the result.",
-    )
     html: bool = Field(
-        default=False,
+        default=True,
         description="Whether to include the page HTML in the response.",
     )
     screenshot: bool = Field(
@@ -185,8 +234,8 @@ class WebSearchInput(_ToolInput):
         max_length=1000,
         description="Search query text, trimmed before sending, containing 1 to 1000 characters.",
     )
-    country: str = Field(
-        default="us",
+    country: Optional[str] = Field(
+        default=None,
         pattern="^[A-Za-z]{2}$",
         description="Two-letter country code to search from, sent in lowercase.",
     )
@@ -296,14 +345,16 @@ class MrScraperScrapeHTML(MrScraperBaseTool):
 
 class MrScraperScrapeMarkdown(MrScraperBaseTool):
     name: str = "mrscraper_scrape_markdown"
-    description: str = "Retrieve a page as Markdown. Including HTML also enables browser rendering and returns both outputs as JSON."
+    description: str = (
+        "Retrieve a page as clean Markdown. Browser rendering is optional."
+    )
     args_schema: type[BaseModel] = ScrapeMarkdownInput
     sdk_method: ClassVar[str] = "scrape_markdown"
 
 
 class MrScraperGetScreenshot(MrScraperBaseTool):
     name: str = "mrscraper_get_screenshot"
-    description: str = "Capture a base64 screenshot of the full page or top viewport. Browser rendering is always enabled."
+    description: str = "Capture a base64 PNG screenshot of the full page. Browser rendering is always enabled."
     args_schema: type[BaseModel] = GetScreenshotInput
     sdk_method: ClassVar[str] = "get_screenshot"
 
@@ -313,7 +364,7 @@ class MrScraperScrapeBrand(MrScraperBaseTool):
     description: str = (
         "Extract a website's colors, typography, logos, and social links as JSON."
     )
-    args_schema: type[BaseModel] = UrlInput
+    args_schema: type[BaseModel] = BrandInput
     sdk_method: ClassVar[str] = "scrape_brand"
 
 
