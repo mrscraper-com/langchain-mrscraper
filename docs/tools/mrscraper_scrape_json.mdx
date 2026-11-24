@@ -8,21 +8,20 @@ Tool: `mrscraper_scrape_json`. Supports `invoke` and `ainvoke`.
 
 ## Parameters
 
-| Parameter           | HTTP field         | Type                                                            | Default                                       | Description                                                                                             |
-| ------------------- | ------------------ | --------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `url`               | `url`              | str                                                             | Required                                      | Absolute HTTP or HTTPS URL of the page to process.                                                      |
-| `timeout`           | `timeout`          | int                                                             | `300`                                         | Page load timeout in seconds, from 1 to 300. The HTTP request allows 30 additional seconds.             |
-| `geo_code`          | `geoCode`          | str                                                             | `"us"`                                        | Two-letter country code to load the page from, sent in lowercase.                                       |
-| `proxy_country`     | `proxyCountry`     | str                                                             | `"us"`                                        | Two-letter country code of the proxy server, sent in lowercase.                                         |
-| `super`             | `super`            | bool                                                            | `False`                                       | Whether to route the request through real devices.                                                      |
-| `wait_until`        | `waitUntil`        | str: `domcontentloaded`, `load`, `networkidle0`, `networkidle2` | `"domcontentloaded"`                          | Navigation completion event to wait for: domcontentloaded, load, networkidle0, or networkidle2.         |
-| `proxy`             | `proxy`            | str                                                             | `None` (omitted)                              | Custom proxy URL used to load the page.                                                                 |
-| `max_retries`       | `maxRetries`       | int                                                             | `None` (omitted)                              | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.                  |
-| `save_result`       | `saveResult`       | bool                                                            | `False`                                       | Whether to save the result to the dashboard Result tab.                                                 |
-| `prompt`            | `prompt`           | str                                                             | `"Extract all data as complete as possible."` | Instructions describing the data to extract. Append Json Schema: and a JSON schema to shape the output. |
-| `browser_rendering` | `browserRendering` | bool                                                            | `False`                                       | Whether to render the page in a browser before returning the result.                                    |
-| `html`              | `html`             | bool                                                            | `False`                                       | Whether to include the page HTML in the response.                                                       |
-| `screenshot`        | `screenshot`       | bool                                                            | `False`                                       | Whether to include a base64 screenshot in the response.                                                 |
+| Parameter           | HTTP field         | Type | Default                                       | Description                                                                                                                                                                                     |
+| ------------------- | ------------------ | ---- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`               | `url`              | str  | Required                                      | Absolute HTTP or HTTPS URL of the page to process.                                                                                                                                              |
+| `prompt`            | `prompt`           | str  | `"Extract all data as complete as possible."` | Instructions describing the data to extract. Append Json Schema: and a JSON schema to shape the output.                                                                                         |
+| `html`              | `html`             | bool | `True`                                        | Whether to include the page HTML in the response.                                                                                                                                               |
+| `browser_rendering` | `browserRendering` | bool | `None` (omitted)                              | Whether to load the page in a browser: true always does and false never does. Omit it to load the page without a browser first and switch to a browser automatically if the request is blocked. |
+| `timeout`           | `timeout`          | int  | `300`                                         | Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds.                                                                                           |
+| `warm_start`        | `warmStart`        | bool | `False`                                       | Whether to open the site's home page first to warm the session before loading the target URL.                                                                                                   |
+| `block_resources`   | `blockResources`   | bool | `False`                                       | Whether to block images, fonts, and stylesheets while loading the page.                                                                                                                         |
+| `wait_for_selector` | `waitForSelector`  | str  | `None` (omitted)                              | CSS selector or text to wait for on the page before returning the result, up to 500 characters.                                                                                                 |
+| `geo_code`          | `geoCode`          | str  | `None` (omitted)                              | Two-letter country code to load the page from, sent in lowercase.                                                                                                                               |
+| `max_age`           | `maxAge`           | int  | `0`                                           | Return a cached result of the same request when it is newer than the selected age. A cached result costs the same tokens as the original scrape.                                                |
+| `max_retries`       | `maxRetries`       | int  | `None` (omitted)                              | Maximum number of retries, as a nonnegative integer. Omit this parameter for no limit.                                                                                                          |
+| `screenshot`        | `screenshot`       | bool | `False`                                       | Whether to include a base64 screenshot in the response.                                                                                                                                         |
 
 ## Example
 
@@ -36,7 +35,7 @@ print(result["data"])
 
 ## Response
 
-Extraction results are in the API body's data field and follow the requested schema. Response metadata includes thread_id, token_usage, status, error, runtime, and cookies. html, markdown, and screenshot can be empty strings when not requested.
+Extraction results are in the API body's data field and follow the requested schema. Response metadata includes thread_id, token_usage, status, error, runtime, and cookies. html contains the page HTML unless disabled; markdown and screenshot can be empty strings.
 
 Response examples show selected keys and types observed in live API responses. Values are placeholders; page content, base64 images, and arrays are abbreviated. Actual responses may contain additional fields.
 
@@ -56,7 +55,7 @@ Decoded response after `json.loads(tool.invoke(...))`:
     ],
     "thread_id": "THREAD_ID",
     "token_usage": 1,
-    "html": "",
+    "html": "<html>...</html>",
     "markdown": "",
     "screenshot": "",
     "status": "Results ready",

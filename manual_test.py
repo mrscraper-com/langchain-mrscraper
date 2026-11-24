@@ -3,7 +3,9 @@
 Each call spends API quota. Not collected by pytest.
 
     python manual_test.py status
-    python manual_test.py get_screenshot --url https://example.com --args '{"screenshot":"top"}'
+    python manual_test.py scrape_html --url https://example.com --args '{"screenshot":"top","max_age":3600000}'
+    python manual_test.py get_screenshot --url https://example.com --args '{"wait_for_selector":"body"}'
+    python manual_test.py get_screenshot --url https://example.com --args '{"screenshot":"1920x1080-75"}'
     python manual_test.py web_search --query "python web scraping" --args '{"country":"us","num_results":10}'
 
 Add --async to call ainvoke instead of invoke. The token comes from --token,
@@ -74,10 +76,10 @@ def check_sdk_version() -> None:
     except PackageNotFoundError:
         sys.exit("mrscraper-sdk is not installed. Run: pip install -e .")
     major_minor = tuple(int(p) for p in installed.split(".")[:2])
-    if major_minor != (0, 11):
+    if major_minor != (0, 12):
         sys.exit(
-            f"mrscraper-sdk {installed} is installed but >=0.11.0,<0.12.0 is required.\n"
-            "Run: pip install -U 'mrscraper-sdk>=0.11.0,<0.12.0'"
+            f"mrscraper-sdk {installed} is installed but >=0.12.0,<0.13.0 is required.\n"
+            "Run: pip install -U 'mrscraper-sdk>=0.12.0,<0.13.0'"
         )
 
 

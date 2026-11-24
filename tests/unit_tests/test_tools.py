@@ -128,13 +128,41 @@ async def test_real_sdk_request_mapping(cls):
 @pytest.mark.parametrize(
     "cls,extra",
     [
-        (package.MrScraperScrapeHTML, {"timeout": 301}),
+        (package.MrScraperScrapeHTML, {"timeout": 331}),
+        (package.MrScraperScrapeHTML, {"timeout": 0}),
         (package.MrScraperScrapeHTML, {"url": "file:///tmp/a"}),
+        (package.MrScraperScrapeHTML, {"screenshot": True}),
+        (package.MrScraperScrapeHTML, {"screenshot": "bottom"}),
+        (package.MrScraperScrapeHTML, {"screenshot": "99x800"}),
+        (package.MrScraperScrapeHTML, {"screenshot": "1280x800-301"}),
+        (package.MrScraperScrapeHTML, {"screenshot": "1280x800\n"}),
+        (package.MrScraperScrapeHTML, {"geo_code": "usa"}),
+        (package.MrScraperScrapeHTML, {"max_age": -1}),
+        (package.MrScraperScrapeHTML, {"max_age": 604800001}),
+        (package.MrScraperScrapeHTML, {"token_cap": 10}),
+        (package.MrScraperScrapeHTML, {"save_result": False}),
+        (package.MrScraperScrapeJSON, {"save_result": True}),
+        (package.MrScraperGetScreenshot, {"token_cap": 10}),
+        (package.MrScraperScrapeHTML, {"wait_for_selector": " "}),
+        (package.MrScraperScrapeHTML, {"wait_for_selector": "a" * 501}),
         (package.MrScraperScrapeMarkdown, {"max_retries": -1}),
+        (package.MrScraperScrapeMarkdown, {"html": True}),
         (package.MrScraperGetScreenshot, {"screenshot": True}),
+        (package.MrScraperGetScreenshot, {"screenshot": False}),
+        (package.MrScraperGetScreenshot, {"screenshot": "FULL"}),
+        (package.MrScraperGetScreenshot, {"screenshot": "99x800"}),
+        (package.MrScraperGetScreenshot, {"screenshot": "1280x800-301"}),
+        (package.MrScraperGetScreenshot, {"browser_rendering": True}),
+        (package.MrScraperGetScreenshot, {"action": "x"}),
         (package.MrScraperScrapeJSON, {"prompt": " "}),
         (package.MrScraperScrapeJSON, {"return_cookie": True}),
+        (package.MrScraperScrapeJSON, {"action": "x"}),
         (package.MrScraperScrapeBrand, {"save_result": True}),
+        (package.MrScraperScrapeBrand, {"max_age": 0}),
+        (package.MrScraperScrapeBrand, {"bundle": "full"}),
+        (package.MrScraperScrapeBrand, {"timeout": 120}),
+        (package.MrScraperScrapeBrand, {"warm_start": False}),
+        (package.MrScraperScrapeBrand, {"geo_code": "us"}),
         (package.MrScraperWebSearch, {"query": " "}),
         (package.MrScraperWebSearch, {"country": "usa"}),
         (package.MrScraperWebSearch, {"num_results": 9}),
@@ -216,7 +244,12 @@ def test_shared_client_created_once(client):
 
 
 @pytest.mark.parametrize(
-    "cls", [package.MrScraperScrapeHTML, package.MrScraperScrapeMarkdown]
+    "cls",
+    [
+        package.MrScraperScrapeHTML,
+        package.MrScraperScrapeMarkdown,
+        package.MrScraperScrapeJSON,
+    ],
 )
 async def test_warm_start_reaches_the_sdk_request(cls):
     calls = []
@@ -236,10 +269,244 @@ async def test_warm_start_reaches_the_sdk_request(cls):
     assert len(calls) == 2
 
 
-@pytest.mark.parametrize(
-    "cls", [package.MrScraperGetScreenshot, package.MrScraperScrapeJSON]
-)
-def test_warm_start_rejected_for_other_page_tools(cls, client):
+def test_warm_start_rejected_for_screenshots(client):
     with pytest.raises(ValidationError):
-        cls(client=client).invoke({"url": URL, "warm_start": True})
+        package.MrScraperGetScreenshot(client=client).invoke(
+            {"url": URL, "warm_start": True}
+        )
+    client.get_screenshot.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "cls,option",
+    [
+        (cls, option)
+        for cls in (
+            package.MrScraperScrapeHTML,
+            package.MrScraperScrapeMarkdown,
+            package.MrScraperGetScreenshot,
+            package.MrScraperScrapeJSON,
+        )
+        for option in (
+            "super",
+            "wait_until",
+            "proxy_country",
+            "proxy",
+            "return_cookie",
+            "save_result",
+            "token_cap",
+            "action",
+        )
+    ]
+    + [
+        (package.MrScraperGetScreenshot, "html"),
+        (package.MrScraperGetScreenshot, "markdown"),
+        (package.MrScraperScrapeMarkdown, "screenshot"),
+    ],
+)
+def test_undocumented_inputs_are_rejected(cls, option, client):
+    with pytest.raises(ValidationError):
+        cls(client=client).invoke({"url": URL, option: "value"})
     getattr(client, cls.sdk_method).assert_not_awaited()
+
+
+async def _requests(cls, *inputs):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        tool = cls(client=MrScraper("test", http_client=http))
+        for value in inputs:
+            await tool.ainvoke(value)
+    return [list(call.url.params.multi_items()) for call in calls]
+
+
+async def test_defaults_reach_the_sdk_request():
+    loading = [("timeout", "300"), ("warmStart", "false"), ("blockResources", "false")]
+    saving = [("saveResult", "true"), ("maxAge", "0")]
+    assert await _requests(package.MrScraperScrapeHTML, {"url": URL}) == [
+        [
+            ("url", URL),
+            ("html", "true"),
+            ("markdown", "false"),
+            *loading,
+            *saving,
+            ("screenshot", "false"),
+        ]
+    ]
+    assert await _requests(package.MrScraperScrapeMarkdown, {"url": URL}) == [
+        [
+            ("url", URL),
+            ("markdown", "true"),
+            ("html", "false"),
+            ("screenshot", "false"),
+            *loading,
+            *saving,
+        ]
+    ]
+    assert await _requests(package.MrScraperGetScreenshot, {"url": URL}) == [
+        [
+            ("url", URL),
+            ("screenshot", "full"),
+            ("html", "false"),
+            ("markdown", "false"),
+            ("browserRendering", "true"),
+            ("timeout", "300"),
+            *saving,
+        ]
+    ]
+    assert await _requests(package.MrScraperScrapeJSON, {"url": URL}) == [
+        [
+            ("url", URL),
+            ("prompt", "Extract all data as complete as possible."),
+            ("agent", "general"),
+            ("html", "true"),
+            *loading,
+            *saving,
+            ("screenshot", "false"),
+        ]
+    ]
+    assert await _requests(package.MrScraperWebSearch, {"query": " shoes "}) == [
+        [("action", "websearch"), ("query", "shoes"), ("numResults", "10")]
+    ]
+
+
+async def test_options_reach_the_sdk_request():
+    shared = {
+        "timeout": 330,
+        "wait_for_selector": ".ready",
+        "geo_code": "ID",
+        "max_age": 604800000,
+        "max_retries": 0,
+    }
+    wire = [
+        ("timeout", "330"),
+        ("warmStart", "true"),
+        ("blockResources", "true"),
+        ("waitForSelector", ".ready"),
+    ]
+    # saveResult is always true and tokenCap is never sent.
+    tail = [
+        ("geoCode", "id"),
+        ("saveResult", "true"),
+        ("maxAge", "604800000"),
+        ("maxRetries", "0"),
+    ]
+    loading = {"warm_start": True, "block_resources": True}
+    (markdown,) = await _requests(
+        package.MrScraperScrapeMarkdown,
+        {"url": URL, **shared, **loading, "browser_rendering": False},
+    )
+    assert markdown == [
+        ("url", URL),
+        ("markdown", "true"),
+        ("html", "false"),
+        ("screenshot", "false"),
+        ("browserRendering", "false"),
+        *wire,
+        *tail,
+    ]
+    (json_request,) = await _requests(
+        package.MrScraperScrapeJSON,
+        {"url": URL, **shared, **loading, "html": False, "screenshot": True},
+    )
+    assert json_request == [
+        ("url", URL),
+        ("prompt", "Extract all data as complete as possible."),
+        ("agent", "general"),
+        ("html", "false"),
+        *wire,
+        *tail,
+        ("screenshot", "true"),
+    ]
+    (search,) = await _requests(
+        package.MrScraperWebSearch,
+        {"query": "shoes", "country": "ID", "num_results": 100},
+    )
+    assert search == [
+        ("action", "websearch"),
+        ("query", "shoes"),
+        ("country", "id"),
+        ("numResults", "100"),
+    ]
+
+
+@pytest.mark.parametrize("screenshot", ["top", "full", "1280x800", "1920x1080-75"])
+@pytest.mark.parametrize("browser_rendering", [None, True, False])
+async def test_html_screenshot_sends_browser_rendering(screenshot, browser_rendering):
+    value = {"url": URL, "screenshot": screenshot}
+    if browser_rendering is not None:
+        value["browser_rendering"] = browser_rendering
+    (params,) = await _requests(package.MrScraperScrapeHTML, value)
+    assert params[:4] == [
+        ("url", URL),
+        ("html", "true"),
+        ("markdown", "false"),
+        ("browserRendering", "true"),
+    ]
+    assert dict(params)["screenshot"] == screenshot
+
+
+@pytest.mark.parametrize("browser_rendering", [None, True, False])
+async def test_html_without_screenshot_keeps_browser_rendering(browser_rendering):
+    value = {"url": URL}
+    if browser_rendering is not None:
+        value["browser_rendering"] = browser_rendering
+    (params,) = await _requests(package.MrScraperScrapeHTML, value)
+    assert dict(params).get("browserRendering") == (
+        None if browser_rendering is None else str(browser_rendering).lower()
+    )
+    assert dict(params)["screenshot"] == "false"
+
+
+async def test_brand_sends_only_the_url():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        tool = package.MrScraperScrapeBrand(client=MrScraper("test", http_client=http))
+        await tool.ainvoke({"url": URL})
+    assert list(calls[0].url.params.multi_items()) == [
+        ("action", "brand-scraping"),
+        ("url", URL),
+        ("bundle", "none"),
+    ]
+    # Brand keeps the fixed 120-second deadline.
+    assert calls[0].extensions["timeout"]["read"] == 120
+
+
+@pytest.mark.parametrize("area", ["full", "top", "1280x800", "1920x1080-75"])
+async def test_screenshot_area_reaches_the_sdk_request(area):
+    (params,) = await _requests(
+        package.MrScraperGetScreenshot, {"url": URL, "screenshot": area}
+    )
+    assert params == [
+        ("url", URL),
+        ("screenshot", area),
+        ("html", "false"),
+        ("markdown", "false"),
+        ("browserRendering", "true"),
+        ("timeout", "300"),
+        ("saveResult", "true"),
+        ("maxAge", "0"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "cls", [package.MrScraperScrapeHTML, package.MrScraperScrapeJSON]
+)
+@pytest.mark.parametrize("value", [None, True, False])
+async def test_browser_rendering_stays_tri_state(cls, value):
+    tool_input = {"url": URL}
+    if value is not None:
+        tool_input["browser_rendering"] = value
+    (params,) = await _requests(cls, tool_input)
+    assert dict(params).get("browserRendering") == (
+        None if value is None else str(value).lower()
+    )

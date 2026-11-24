@@ -8,11 +8,11 @@ Tool: `mrscraper_web_search`. Supports `invoke` and `ainvoke`.
 
 ## Parameters
 
-| Parameter     | HTTP field   | Type | Default  | Description                                                                                       |
-| ------------- | ------------ | ---- | -------- | ------------------------------------------------------------------------------------------------- |
-| `query`       | `query`      | str  | Required | Search query text, trimmed before sending, containing 1 to 1000 characters.                       |
-| `country`     | `country`    | str  | `"us"`   | Two-letter country code to search from, sent in lowercase.                                        |
-| `num_results` | `numResults` | int  | `10`     | Number of search results to request, as an integer from 10 to 100. Fewer results may be returned. |
+| Parameter     | HTTP field   | Type | Default          | Description                                                                                       |
+| ------------- | ------------ | ---- | ---------------- | ------------------------------------------------------------------------------------------------- |
+| `query`       | `query`      | str  | Required         | Search query text, trimmed before sending, containing 1 to 1000 characters.                       |
+| `country`     | `country`    | str  | `None` (omitted) | Two-letter country code to search from, sent in lowercase.                                        |
+| `num_results` | `numResults` | int  | `10`             | Number of search results to request, as an integer from 10 to 100. Fewer results may be returned. |
 
 ## Example
 
