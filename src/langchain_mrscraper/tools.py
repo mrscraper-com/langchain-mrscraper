@@ -138,6 +138,24 @@ class _ActionInput(LoadingInput):
 
 
 _SCREENSHOT_VIEWPORT = re.compile(r"([0-9]{3,4})x([0-9]{3,4})(?:-([0-9]{2,3}))?")
+_SCREENSHOT_AREA_HINT = (
+    "WIDTHxHEIGHT from 100 to 3840 pixels with an optional -ZOOM from 25 to 300, "
+    "such as 1280x800 or 1920x1080-75"
+)
+
+
+def _is_screenshot_area(value: Any) -> bool:
+    """Return whether value is full, top, or a WIDTHxHEIGHT viewport with an optional -ZOOM."""
+    if not isinstance(value, str):
+        return False
+    if value in ("full", "top"):
+        return True
+    match = _SCREENSHOT_VIEWPORT.fullmatch(value)
+    if not match:
+        return False
+    width, height = int(match[1]), int(match[2])
+    zoom = 100 if match[3] is None else int(match[3])
+    return 100 <= width <= 3840 and 100 <= height <= 3840 and 25 <= zoom <= 300
 
 
 class ScrapeHtmlInput(_ActionInput):
@@ -149,19 +167,10 @@ class ScrapeHtmlInput(_ActionInput):
     @field_validator("screenshot", mode="before")
     @classmethod
     def _screenshot(cls, value: Any) -> Any:
-        if value is False or value in ("full", "top"):
+        if value is False or _is_screenshot_area(value):
             return value
-        match = (
-            _SCREENSHOT_VIEWPORT.fullmatch(value) if isinstance(value, str) else None
-        )
-        if match:
-            width, height = int(match[1]), int(match[2])
-            zoom = 100 if match[3] is None else int(match[3])
-            if 100 <= width <= 3840 and 100 <= height <= 3840 and 25 <= zoom <= 300:
-                return value
         raise ValueError(
-            "screenshot must be false, full, top, or WIDTHxHEIGHT from 100 to 3840 "
-            "pixels with an optional -ZOOM from 25 to 300, such as 1280x800 or 1920x1080-75"
+            f"screenshot must be false, full, top, or {_SCREENSHOT_AREA_HINT}"
         )
 
 
@@ -170,7 +179,19 @@ class ScrapeMarkdownInput(_ActionInput):
 
 
 class GetScreenshotInput(PageInput):
-    """Screenshots always render the full page in a browser."""
+    """Screenshots always render in a browser; the area defaults to the full page."""
+
+    screenshot: str = Field(
+        default="full",
+        description="Screenshot area to capture: full for the entire scroll height, top for the first viewport, or a WIDTHxHEIGHT viewport from 100 to 3840 pixels with an optional -ZOOM percent from 25 to 300, such as 1280x800 or 1920x1080-75.",
+    )
+
+    @field_validator("screenshot", mode="before")
+    @classmethod
+    def _area(cls, value: Any) -> Any:
+        if _is_screenshot_area(value):
+            return value
+        raise ValueError(f"screenshot must be full, top, or {_SCREENSHOT_AREA_HINT}")
 
 
 class ScrapeJsonInput(LoadingInput):
@@ -322,7 +343,7 @@ class MrScraperScrapeMarkdown(MrScraperBaseTool):
 
 class MrScraperGetScreenshot(MrScraperBaseTool):
     name: str = "mrscraper_get_screenshot"
-    description: str = "Capture a base64 PNG screenshot of the full page. Browser rendering is always enabled."
+    description: str = "Capture a base64 PNG screenshot of the full page, the first viewport, or a custom viewport. Browser rendering is always enabled."
     args_schema: type[BaseModel] = GetScreenshotInput
     sdk_method: ClassVar[str] = "get_screenshot"
 

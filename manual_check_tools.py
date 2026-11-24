@@ -55,6 +55,14 @@ CASES: list[tuple[str, str, dict[str, Any]]] = [
     ],
     ("web_search", "mrscraper_web_search", {"query": "python web scraping"}),
     # Representative non-default options for each parameter group.
+    *[
+        (
+            f"get_screenshot_{area}",
+            "mrscraper_get_screenshot",
+            {"url": URL, "screenshot": area},
+        )
+        for area in ("top", "1280x800", "1920x1080-75")
+    ],
     (
         "scrape_html_options",
         "mrscraper_scrape_html",

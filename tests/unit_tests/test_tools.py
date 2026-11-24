@@ -148,7 +148,11 @@ async def test_real_sdk_request_mapping(cls):
         (package.MrScraperScrapeHTML, {"wait_for_selector": "a" * 501}),
         (package.MrScraperScrapeMarkdown, {"max_retries": -1}),
         (package.MrScraperScrapeMarkdown, {"html": True}),
-        (package.MrScraperGetScreenshot, {"screenshot": "top"}),
+        (package.MrScraperGetScreenshot, {"screenshot": True}),
+        (package.MrScraperGetScreenshot, {"screenshot": False}),
+        (package.MrScraperGetScreenshot, {"screenshot": "FULL"}),
+        (package.MrScraperGetScreenshot, {"screenshot": "99x800"}),
+        (package.MrScraperGetScreenshot, {"screenshot": "1280x800-301"}),
         (package.MrScraperGetScreenshot, {"browser_rendering": True}),
         (package.MrScraperGetScreenshot, {"action": "x"}),
         (package.MrScraperScrapeJSON, {"prompt": " "}),
@@ -476,3 +480,34 @@ async def test_brand_sends_only_the_url():
     ]
     # Brand keeps the fixed 120-second deadline.
     assert calls[0].extensions["timeout"]["read"] == 120
+
+
+@pytest.mark.parametrize("area", ["full", "top", "1280x800", "1920x1080-75"])
+async def test_screenshot_area_reaches_the_sdk_request(area):
+    (params,) = await _requests(
+        package.MrScraperGetScreenshot, {"url": URL, "screenshot": area}
+    )
+    assert params == [
+        ("url", URL),
+        ("screenshot", area),
+        ("html", "false"),
+        ("markdown", "false"),
+        ("browserRendering", "true"),
+        ("timeout", "300"),
+        ("saveResult", "true"),
+        ("maxAge", "0"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "cls", [package.MrScraperScrapeHTML, package.MrScraperScrapeJSON]
+)
+@pytest.mark.parametrize("value", [None, True, False])
+async def test_browser_rendering_stays_tri_state(cls, value):
+    tool_input = {"url": URL}
+    if value is not None:
+        tool_input["browser_rendering"] = value
+    (params,) = await _requests(cls, tool_input)
+    assert dict(params).get("browserRendering") == (
+        None if value is None else str(value).lower()
+    )
