@@ -136,7 +136,6 @@ async def test_real_sdk_request_mapping(cls):
         (package.MrScraperScrapeHTML, {"screenshot": "99x800"}),
         (package.MrScraperScrapeHTML, {"screenshot": "1280x800-301"}),
         (package.MrScraperScrapeHTML, {"screenshot": "1280x800\n"}),
-        (package.MrScraperScrapeHTML, {"action": " "}),
         (package.MrScraperScrapeHTML, {"geo_code": "usa"}),
         (package.MrScraperScrapeHTML, {"max_age": -1}),
         (package.MrScraperScrapeHTML, {"max_age": 604800001}),
@@ -296,6 +295,7 @@ def test_warm_start_rejected_for_screenshots(client):
             "return_cookie",
             "save_result",
             "token_cap",
+            "action",
         )
     ]
     + [
@@ -398,7 +398,7 @@ async def test_options_reach_the_sdk_request():
     loading = {"warm_start": True, "block_resources": True}
     (markdown,) = await _requests(
         package.MrScraperScrapeMarkdown,
-        {"url": URL, **shared, **loading, "browser_rendering": False, "action": "a"},
+        {"url": URL, **shared, **loading, "browser_rendering": False},
     )
     assert markdown == [
         ("url", URL),
@@ -407,7 +407,6 @@ async def test_options_reach_the_sdk_request():
         ("screenshot", "false"),
         ("browserRendering", "false"),
         *wire,
-        ("action", "a"),
         *tail,
     ]
     (json_request,) = await _requests(

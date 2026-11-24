@@ -124,19 +124,6 @@ class LoadingInput(PageInput):
     )
 
 
-class _ActionInput(LoadingInput):
-    action: Optional[str] = Field(
-        default=None,
-        min_length=1,
-        description="Scraper action that routes the request or simply flags it, useful for separating analytics per domain.",
-    )
-
-    @field_validator("action")
-    @classmethod
-    def _action(cls, value: Optional[str]) -> Optional[str]:
-        return _nonblank(value, "action")
-
-
 _SCREENSHOT_VIEWPORT = re.compile(r"([0-9]{3,4})x([0-9]{3,4})(?:-([0-9]{2,3}))?")
 _SCREENSHOT_AREA_HINT = (
     "WIDTHxHEIGHT from 100 to 3840 pixels with an optional -ZOOM from 25 to 300, "
@@ -158,7 +145,7 @@ def _is_screenshot_area(value: Any) -> bool:
     return 100 <= width <= 3840 and 100 <= height <= 3840 and 25 <= zoom <= 300
 
 
-class ScrapeHtmlInput(_ActionInput):
+class ScrapeHtmlInput(LoadingInput):
     screenshot: Union[Literal[False], str] = Field(
         default=False,
         description="Screenshot to capture with the HTML: false for none, full for the entire page, top for the first viewport, or a WIDTHxHEIGHT viewport from 100 to 3840 pixels with an optional -ZOOM percent from 25 to 300, such as 1280x800 or 1920x1080-75. Setting a screenshot also sends browserRendering=true.",
@@ -174,7 +161,7 @@ class ScrapeHtmlInput(_ActionInput):
         )
 
 
-class ScrapeMarkdownInput(_ActionInput):
+class ScrapeMarkdownInput(LoadingInput):
     """Markdown accepts the HTML controls without a screenshot."""
 
 
