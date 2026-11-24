@@ -550,10 +550,6 @@ Pass an existing `MrScraper(http_client=http_client)` as `client=` to reuse a co
 
 Install this checkout with `python -m pip install -e '.[test]'` to resolve the matching SDK dependency before testing. Tool inputs use snake_case and reject unsupported fields. Parse the JSON string returned by a tool with `json.loads`; raw API nesting remains inside `data`.
 
-## Migration
-
-Version 0.7.0 matches the Scraper API reference and requires `mrscraper-sdk` 0.12. Removed inputs: `super`, `wait_until`, `proxy_country`, `proxy`, `return_cookie`, `save_result`, `token_cap`, `html` for `mrscraper_scrape_markdown`, and `html` and `markdown` for `mrscraper_get_screenshot`; its `screenshot` input still defaults to `"full"` and now also accepts a `WIDTHxHEIGHT[-ZOOM]` viewport. Results are always saved to the dashboard (`saveResult=true`), and `tokenCap` is never sent. New inputs: `max_age`, `action` for HTML and Markdown, and `screenshot` for `mrscraper_scrape_html`; `mrscraper_scrape_json` now accepts `warm_start`, `block_resources`, and `wait_for_selector`. Changed defaults: `html=True` for JSON extraction, `browser_rendering=None` (automatic), `geo_code=None` and `country=None` (omitted), and page timeouts up to 330 seconds. Tool inputs reject unsupported fields, so remove the old inputs from saved agent configurations.
-
 ## Development and testing
 
 ### Automated checks
