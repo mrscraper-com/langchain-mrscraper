@@ -65,28 +65,6 @@ class UrlInput(_ToolInput):
         return value
 
 
-class BrandInput(UrlInput):
-    """Brand accepts the page timeout, warm start, and country controls."""
-
-    timeout: Optional[int] = Field(
-        default=None,
-        ge=1,
-        le=330,
-        strict=True,
-        description="Maximum seconds to wait for the scrape, from 1 to 330. The HTTP request allows 30 additional seconds.",
-    )
-    warm_start: bool = Field(
-        default=False,
-        strict=True,
-        description="Whether to open the site's home page first to warm the session before loading the target URL.",
-    )
-    geo_code: Optional[str] = Field(
-        default=None,
-        pattern="^[A-Za-z]{2}$",
-        description="Two-letter country code to load the page from, sent in lowercase.",
-    )
-
-
 class PageInput(UrlInput):
     """Page controls shared by HTML, Markdown, screenshots, and JSON extraction."""
 
@@ -354,7 +332,7 @@ class MrScraperScrapeBrand(MrScraperBaseTool):
     description: str = (
         "Extract a website's colors, typography, logos, and social links as JSON."
     )
-    args_schema: type[BaseModel] = BrandInput
+    args_schema: type[BaseModel] = UrlInput
     sdk_method: ClassVar[str] = "scrape_brand"
 
 

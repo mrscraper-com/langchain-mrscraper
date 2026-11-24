@@ -69,11 +69,6 @@ CASES: list[tuple[str, str, dict[str, Any]]] = [
         },
     ),
     (
-        "scrape_brand_options",
-        "mrscraper_scrape_brand",
-        {"url": URL, "timeout": 120, "warm_start": True, "geo_code": "GB"},
-    ),
-    (
         "scrape_markdown_options",
         "mrscraper_scrape_markdown",
         {

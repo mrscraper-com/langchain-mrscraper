@@ -157,10 +157,9 @@ async def test_real_sdk_request_mapping(cls):
         (package.MrScraperScrapeBrand, {"save_result": True}),
         (package.MrScraperScrapeBrand, {"max_age": 0}),
         (package.MrScraperScrapeBrand, {"bundle": "full"}),
-        (package.MrScraperScrapeBrand, {"timeout": 331}),
-        (package.MrScraperScrapeBrand, {"timeout": True}),
-        (package.MrScraperScrapeBrand, {"warm_start": "true"}),
-        (package.MrScraperScrapeBrand, {"geo_code": "usa"}),
+        (package.MrScraperScrapeBrand, {"timeout": 120}),
+        (package.MrScraperScrapeBrand, {"warm_start": False}),
+        (package.MrScraperScrapeBrand, {"geo_code": "us"}),
         (package.MrScraperWebSearch, {"query": " "}),
         (package.MrScraperWebSearch, {"country": "usa"}),
         (package.MrScraperWebSearch, {"num_results": 9}),
@@ -460,7 +459,7 @@ async def test_html_without_screenshot_keeps_browser_rendering(browser_rendering
     assert dict(params)["screenshot"] == "false"
 
 
-async def test_brand_inputs_reach_the_sdk_request():
+async def test_brand_sends_only_the_url():
     calls = []
 
     def handler(request):
@@ -470,17 +469,10 @@ async def test_brand_inputs_reach_the_sdk_request():
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
         tool = package.MrScraperScrapeBrand(client=MrScraper("test", http_client=http))
         await tool.ainvoke({"url": URL})
-        await tool.ainvoke(
-            {"url": URL, "timeout": 120, "warm_start": True, "geo_code": "GB"}
-        )
-    brand = [("action", "brand-scraping"), ("url", URL), ("bundle", "none")]
-    # timeout is sent only when set; warmStart is always sent.
-    assert list(calls[0].url.params.multi_items()) == [*brand, ("warmStart", "false")]
-    assert list(calls[1].url.params.multi_items()) == [
-        *brand,
-        ("timeout", "120"),
-        ("warmStart", "true"),
-        ("geoCode", "gb"),
+    assert list(calls[0].url.params.multi_items()) == [
+        ("action", "brand-scraping"),
+        ("url", URL),
+        ("bundle", "none"),
     ]
-    # The brand deadline is the timeout, or 300 seconds when omitted, plus 30.
-    assert [call.extensions["timeout"]["read"] for call in calls] == [330, 150]
+    # Brand keeps the fixed 120-second deadline.
+    assert calls[0].extensions["timeout"]["read"] == 120

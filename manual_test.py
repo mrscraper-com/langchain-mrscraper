@@ -5,7 +5,6 @@ Each call spends API quota. Not collected by pytest.
     python manual_test.py status
     python manual_test.py scrape_html --url https://example.com --args '{"screenshot":"top","max_age":3600000}'
     python manual_test.py get_screenshot --url https://example.com --args '{"wait_for_selector":"body"}'
-    python manual_test.py scrape_brand --url https://example.com --args '{"timeout":120,"warm_start":true,"geo_code":"gb"}'
     python manual_test.py web_search --query "python web scraping" --args '{"country":"us","num_results":10}'
 
 Add --async to call ainvoke instead of invoke. The token comes from --token,
