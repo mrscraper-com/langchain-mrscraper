@@ -20,7 +20,7 @@ Seven services share the same descriptions, parameter meanings, and defaults acr
 
 ## Installation
 
-Requires Python 3.9 or newer, LangChain Core, and `mrscraper-sdk>=0.12.0,<0.13.0` with the seven-service interface documented here.
+Requires Python 3.9 or newer, LangChain Core, and `mrscraper-sdk>=0.13.0,<0.14.0` with the seven-service interface documented here.
 
 ```bash
 python -m pip install --upgrade langchain-mrscraper
